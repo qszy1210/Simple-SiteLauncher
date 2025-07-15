@@ -33,15 +33,15 @@ class QuickOpenSite {
         });
 
         // 右键菜单 - 打开设置
-        // document.addEventListener('contextmenu', (e) => {
-        //     e.preventDefault();
-        //     this.openSettings();
-        // });
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            this.openSettings();
+        });
 
         // // 阻止输入框的右键菜单
-        // this.searchInput.addEventListener('contextmenu', (e) => {
-        //     e.stopPropagation();
-        // });
+        this.searchInput.addEventListener('contextmenu', (e) => {
+            e.stopPropagation();
+        });
     }
 
     async loadSettings() {
