@@ -19,9 +19,8 @@
   "commands": {
     "_execute_action": {
       "suggested_key": {
-        "default": "Command+G",
-        "mac": "Command+G",
-		"windows": "Ctrl+G"
+        "default": "Ctrl+G",
+        "mac": "Command+G"
       },
       "description": "打开Quick Open Site"
     }

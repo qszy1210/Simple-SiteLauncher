@@ -60,16 +60,23 @@ class QuickOpenSite {
             const siteLauncherFolder = this.findSiteLauncherFolder(bookmarkTree);
 
             if (siteLauncherFolder) {
-                console.log('找到SiteLauncher文件夹:', siteLauncherFolder);
-                // 获取SiteLauncher文件夹中的所有书签和子文件夹
+                console.log('✅ 找到SiteLauncher文件夹:', siteLauncherFolder);
                 const children = await chrome.bookmarks.getChildren(siteLauncherFolder.id);
-                this.bookmarks = await this.processBookmarkItems(children);
+                console.log(`➡️ SiteLauncher包含 ${children.length} 个直接子项目。`);
 
-                this.parseKeyMappings();
-                this.filteredBookmarks = [...this.bookmarks];
-                this.renderBookmarks();
+                this.bookmarks = await this.processBookmarkItems(children);
+                console.log(`✅ 处理后共找到 ${this.bookmarks.length} 个书签。`, this.bookmarks);
+
+                if (this.bookmarks.length > 0) {
+                    this.parseKeyMappings();
+                    this.filteredBookmarks = [...this.bookmarks];
+                    this.renderBookmarks();
+                } else {
+                    console.warn('SiteLauncher文件夹及其直接子文件夹中没有找到任何书签。');
+                    this.showEmptyState();
+                }
             } else {
-                console.error('未找到SiteLauncher文件夹');
+                console.error('❌ 未找到SiteLauncher文件夹');
                 this.showEmptyState();
             }
         } catch (error) {
@@ -94,35 +101,47 @@ class QuickOpenSite {
     }
 
     async processBookmarkItems(items) {
-        const bookmarks = [];
-
-        for (const item of items) {
+        const bookmarkPromises = items.map(async (item) => {
+            // A bookmark item has a `url` property.
             if (item.url) {
-                // 这是一个书签
-                bookmarks.push({
+                console.log(`➡️ 处理直接书签: "${item.title}"`);
+                return {
                     id: item.id,
                     title: item.title,
                     url: item.url,
                     favicon: this.getFavicon(item.url)
-                });
-            } else if (item.children) {
-                // 这是一个子文件夹，获取其中的书签（不递归）
-                const childItems = await chrome.bookmarks.getChildren(item.id);
-                const childBookmarks = childItems
-                    .filter(child => child.url) // 只处理书签，不处理嵌套子文件夹
-                    .map(child => ({
-                        id: child.id,
-                        title: child.title,
-                        url: child.url,
-                        favicon: this.getFavicon(child.url),
-                        folder: item.title // 添加文件夹信息
-                    }));
-
-                bookmarks.push(...childBookmarks);
+                };
             }
-        }
+            // A folder item does NOT have a `url` property.
+            else {
+                console.log(`➡️ 处理子文件夹: "${item.title}". 正在获取其内容...`);
+                const subFolderChildren = await chrome.bookmarks.getChildren(item.id);
+                console.log(`   - 子文件夹 "${item.title}" 包含 ${subFolderChildren.length} 个项目。`);
 
-        return bookmarks;
+                return subFolderChildren
+                    .filter(child => {
+                        const isBookmark = !!child.url;
+                        if (!isBookmark) {
+                            console.log(`   - 忽略嵌套的子文件夹: "${child.title}"`);
+                        }
+                        return isBookmark;
+                    }) // 只处理书签，忽略更深层的文件夹
+                    .map(bookmark => {
+                        console.log(`   - ✅ 成功从 "${item.title}" 中提取书签: "${bookmark.title}"`);
+                        return {
+                            id: bookmark.id,
+                            title: bookmark.title,
+                            url: bookmark.url,
+                            favicon: this.getFavicon(bookmark.url),
+                            folder: item.title // 记录其所属的文件夹名称
+                        };
+                    });
+            }
+        });
+
+        // 等待所有异步操作完成，然后将多维数组展平为一维数组
+        const nestedBookmarks = await Promise.all(bookmarkPromises);
+        return nestedBookmarks.flat();
     }
 
     parseKeyMappings() {
@@ -155,12 +174,18 @@ class QuickOpenSite {
     }
 
     renderBookmarks() {
+        this.bookmarksList.innerHTML = ''; // 先清空列表
+
         if (this.filteredBookmarks.length === 0) {
-            this.showNoResults();
+            // 如果是在搜索后没有结果，显示“无结果”
+            if (this.searchInput.value) {
+                this.showNoResults();
+            } else { // 如果是初始加载就没有书签，显示“空状态”
+                this.showEmptyState();
+            }
             return;
         }
 
-        this.bookmarksList.innerHTML = '';
         this.bookmarksList.style.display = 'block';
         this.emptyState.style.display = 'none';
         this.noResults.style.display = 'none';
