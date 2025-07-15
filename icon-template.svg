@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景渐变 -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4facfe"/>
+      <stop offset="100%" style="stop-color:#00f2fe"/>
+    </linearGradient>
+    <linearGradient id="iconGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff"/>
+      <stop offset="100%" style="stop-color:#e3f2fd"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 背景圆角矩形 -->
+  <rect width="128" height="128" rx="24" ry="24" fill="url(#bgGradient)"/>
+
+  <!-- 闪电图标 -->
+  <path d="M76 20 L52 48 L68 48 L52 88 L76 60 L60 60 L76 20 Z"
+        fill="url(#iconGradient)"
+        stroke="rgba(255,255,255,0.3)"
+        stroke-width="1"/>
+
+  <!-- 小圆点装饰 -->
+  <circle cx="32" cy="32" r="3" fill="rgba(255,255,255,0.6)"/>
+  <circle cx="96" cy="96" r="3" fill="rgba(255,255,255,0.6)"/>
+  <circle cx="32" cy="96" r="2" fill="rgba(255,255,255,0.4)"/>
+  <circle cx="96" cy="32" r="2" fill="rgba(255,255,255,0.4)"/>
+</svg>
+
+<!--
+使用说明：
+1. 将此SVG保存为 icon-template.svg
+2. 使用在线工具或软件将SVG转换为PNG格式
+3. 创建不同尺寸的版本：
+   - icon16.png (16x16)
+   - icon32.png (32x32)
+   - icon48.png (48x48)
+   - icon128.png (128x128)
+
+推荐工具：
+- 在线: https://convertio.co/svg-png/
+- 软件: Inkscape (免费)
+- 设计: Figma, Adobe Illustrator
+
+备选图标方案：
+如果不喜欢闪电图标，可以尝试：
+- 箭头指向右上角 (➚)
+- 火箭图标 (🚀)
+- 链接图标 (��)
+- 书签图标 (📑)
+-->

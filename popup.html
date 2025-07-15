@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Open Site</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Quick Open Site</h1>
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="搜索书签、文件夹或按快捷键..." autofocus>
+                <div class="search-icon">🔍</div>
+            </div>
+        </div>
+
+        <div class="content">
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <span>正在加载书签...</span>
+            </div>
+
+            <div id="bookmarksList" class="bookmarks-list" style="display: none;">
+                <!-- 动态生成书签列表 -->
+            </div>
+
+            <div id="emptyState" class="empty-state" style="display: none;">
+                <div class="empty-icon">📁</div>
+                <h3>未找到SiteLauncher文件夹</h3>
+                <p>请在书签中创建一个名为"SiteLauncher"的文件夹，并添加书签或子文件夹。</p>
+                <p>书签名称格式：网站名称 [快捷键]</p>
+                <p>例如：Google [g]、GitHub [h]</p>
+                <p>子文件夹中的书签也会被显示，并标注所属文件夹。</p>
+            </div>
+
+            <div id="noResults" class="empty-state" style="display: none;">
+                <div class="empty-icon">🔍</div>
+                <h3>未找到匹配的书签</h3>
+                <p>请尝试其他搜索词或检查书签设置。</p>
+                <p>提示：您可以搜索书签名称、网址或文件夹名称。</p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="tips">
+                <span>提示：按 a-z 或 0-9 快速打开书签</span>
+                <span class="settings-tip">右键打开设置</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

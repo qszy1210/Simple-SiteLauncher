@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Open Site - 设置</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 32px;
+        }
+
+        .section:last-child {
+            margin-bottom: 0;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            border-radius: 2px;
+        }
+
+        .option-group {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        .option-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .option-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .option-item:first-child {
+            padding-top: 0;
+        }
+
+        .option-info {
+            flex: 1;
+        }
+
+        .option-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .option-description {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .option-control {
+            margin-left: 20px;
+        }
+
+        /* 开关样式 */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 52px;
+            height: 28px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 28px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        input:checked + .slider {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+
+        /* 按钮样式 */
+        .btn {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(79, 172, 254, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #dee2e6;
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 快捷键信息 */
+        .shortcut-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+
+        .shortcut-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .shortcut-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .shortcut-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .shortcut-list li:last-child {
+            border-bottom: none;
+        }
+
+        .shortcut-key {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        /* 保存状态 */
+        .save-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .save-status.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .option-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .option-control {
+                margin-left: 0;
+                align-self: flex-end;
+            }
+        }
+
+        /* 文件夹结构示例 */
+        .folder-structure {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-top: 12px;
+            color: #333;
+            border-left: 4px solid #4facfe;
+        }
+
+        .folder-structure .folder {
+            color: #0366d6;
+            font-weight: bold;
+        }
+
+        .folder-structure .bookmark {
+            color: #24292e;
+        }
+
+        .folder-structure .key {
+            color: #d73a49;
+            font-weight: bold;
+        }
+
+        .folder-structure .indent {
+            margin-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ Quick Open Site</h1>
+            <p>快速打开书签网站的浏览器扩展</p>
+        </div>
+
+        <div class="content">
+            <!-- 快捷键信息 -->
+            <div class="shortcut-info">
+                <div class="shortcut-title">
+                    ⌨️ 快捷键使用指南
+                </div>
+                <ul class="shortcut-list">
+                    <li>
+                        <span>打开扩展</span>
+                        <span class="shortcut-key">Cmd/Ctrl + G</span>
+                    </li>
+                    <li>
+                        <span>快速打开书签</span>
+                        <span class="shortcut-key">a-z, 0-9</span>
+                    </li>
+                    <li>
+                        <span>上下选择</span>
+                        <span class="shortcut-key">↑ ↓</span>
+                    </li>
+                    <li>
+                        <span>确认打开</span>
+                        <span class="shortcut-key">Enter</span>
+                    </li>
+                    <li>
+                        <span>关闭扩展</span>
+                        <span class="shortcut-key">Esc</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- 基本设置 -->
+            <div class="section">
+                <h2 class="section-title">基本设置</h2>
+                <div class="option-group">
+                    <div class="option-item">
+                        <div class="option-info">
+                            <div class="option-title">在新标签页打开书签</div>
+                            <div class="option-description">
+                                开启后，点击书签将在新标签页打开；关闭后将在当前标签页打开
+                            </div>
+                        </div>
+                        <div class="option-control">
+                            <label class="switch">
+                                <input type="checkbox" id="openInNewTab" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 书签设置 -->
+            <div class="section">
+                <h2 class="section-title">书签设置</h2>
+                <div class="option-group">
+                    <div class="option-item">
+                        <div class="option-info">
+                            <div class="option-title">书签文件夹结构</div>
+                            <div class="option-description">
+                                扩展将读取SiteLauncher文件夹下的所有书签，包括子文件夹中的书签。
+                                子文件夹可以用来组织不同类别的书签，使管理更加方便。
+                            </div>
+                            <div class="folder-structure">
+                                <div class="folder">📁 SiteLauncher</div>
+                                <div class="indent bookmark">🔖 Google <span class="key">[g]</span></div>
+                                <div class="indent bookmark">🔖 GitHub <span class="key">[h]</span></div>
+                                <div class="indent folder">📁 工作</div>
+                                <div class="indent indent bookmark">🔖 邮箱 <span class="key">[m]</span></div>
+                                <div class="indent indent bookmark">🔖 日历 <span class="key">[c]</span></div>
+                                <div class="indent folder">📁 娱乐</div>
+                                <div class="indent indent bookmark">🔖 YouTube <span class="key">[y]</span></div>
+                                <div class="indent indent bookmark">🔖 Netflix <span class="key">[n]</span></div>
+                            </div>
+                        </div>
+                        <div class="option-control">
+                            <button class="btn btn-secondary" id="manageBookmarksBtn">
+                                管理书签
+                            </button>
+                        </div>
+                    </div>
+                    <div class="option-item">
+                        <div class="option-info">
+                            <div class="option-title">快捷键格式</div>
+                            <div class="option-description">
+                                在书签名称后添加 [字母] 或 [数字] 来设置快捷键<br>
+                                例如：Google [g]、GitHub [h]、Notion [n]
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 高级设置 -->
+            <div class="section">
+                <h2 class="section-title">高级设置</h2>
+                <div class="option-group">
+                    <div class="option-item">
+                        <div class="option-info">
+                            <div class="option-title">重置所有设置</div>
+                            <div class="option-description">
+                                将所有设置恢复到默认状态
+                            </div>
+                        </div>
+                        <div class="option-control">
+                            <button class="btn btn-secondary" id="resetSettingsBtn">
+                                重置设置
+                            </button>
+                        </div>
+                    </div>
+                    <div class="option-item">
+                        <div class="option-info">
+                            <div class="option-title">版本信息</div>
+                            <div class="option-description">
+                                Quick Open Site v1.0.0<br>
+                                Chrome 扩展 Manifest V3
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="saveStatus" class="save-status">
+        ✅ 设置已保存
+    </div>
+
+    <script src="options.js"></script>
+</body>
+</html>

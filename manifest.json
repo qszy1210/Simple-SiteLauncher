@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Quick Open Site",
+  "version": "1.0.0",
+  "description": "快速打开书签中的网站，支持快捷键操作",
+  "permissions": [
+    "bookmarks",
+    "activeTab",
+    "storage",
+    "contextMenus"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Quick Open Site"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Command+G",
+        "mac": "Command+G",
+		"windows": "Ctrl+G"
+      },
+      "description": "打开Quick Open Site"
+    }
+  },
+  "options_page": "options.html"
+}
