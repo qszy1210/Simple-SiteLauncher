@@ -69,6 +69,16 @@ class QuickOpenSite {
 
                 if (this.bookmarks.length > 0) {
                     this.parseKeyMappings();
+
+                    // 排序书签：有快捷键的优先
+                    this.bookmarks.sort((a, b) => {
+                        const aHasKey = !!a.key;
+                        const bHasKey = !!b.key;
+                        if (aHasKey && !bHasKey) return -1;
+                        if (!aHasKey && bHasKey) return 1;
+                        return a.displayTitle.localeCompare(b.displayTitle);
+                    });
+
                     this.filteredBookmarks = [...this.bookmarks];
                     this.renderBookmarks();
                 } else {
