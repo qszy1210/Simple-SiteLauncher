@@ -191,31 +191,53 @@ body {
     color: white;
 }
 
-.key-container {
+.actions-container {
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-left: auto; /* 将容器推到最右侧 */
 }
 
 .delete-key-btn {
-    background: #ff5b5b;
-    color: white;
-    border: none;
+    background: #fdd8d8;
+    color: #d32f2f;
+    border: 1px solid #fbc2c2;
     border-radius: 50%;
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     font-size: 12px;
     font-weight: bold;
     cursor: pointer;
-    margin-left: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background-color 0.3s ease;
+    transition: all 0.2s ease;
 }
 
 .delete-key-btn:hover {
-    background: #ff3c3c;
+    background: #d32f2f;
+    color: white;
+    border-color: #d32f2f;
+}
+
+.delete-bookmark-btn {
+    background: transparent;
+    color: #999;
+    border: none;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.delete-bookmark-btn:hover {
+    background: #d32f2f;
+    color: white;
 }
 
 /* 空状态 */

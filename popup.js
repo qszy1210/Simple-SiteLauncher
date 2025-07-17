@@ -241,19 +241,11 @@ class QuickOpenSite {
 
         const icon = this.createBookmarkIcon(bookmark);
         const info = this.createBookmarkInfo(bookmark);
+        const actionsContainer = this.createActionsContainer(bookmark);
 
         item.appendChild(icon);
         item.appendChild(info);
-
-        if (bookmark.key) {
-            const keyBadge = this.createKeyBadge(bookmark.key);
-            const deleteBtn = this.createDeleteKeyButton(bookmark);
-            const keyContainer = document.createElement('div');
-            keyContainer.className = 'key-container';
-            keyContainer.appendChild(keyBadge);
-            keyContainer.appendChild(deleteBtn);
-            item.appendChild(keyContainer);
-        }
+        item.appendChild(actionsContainer);
 
         item.addEventListener('click', () => this.openBookmark(bookmark));
 
@@ -315,26 +307,69 @@ class QuickOpenSite {
         return badge;
     }
 
+    createActionsContainer(bookmark) {
+        const container = document.createElement('div');
+        container.className = 'actions-container';
+
+        // 如果有快捷键，则显示快捷键和删除快捷键按钮
+        if (bookmark.key) {
+            const keyBadge = this.createKeyBadge(bookmark.key);
+            const deleteKeyBtn = this.createDeleteKeyButton(bookmark);
+            container.appendChild(keyBadge);
+            container.appendChild(deleteKeyBtn);
+        }
+
+        // 添加删除整个书签的按钮
+        const deleteBookmarkBtn = this.createDeleteBookmarkButton(bookmark);
+        container.appendChild(deleteBookmarkBtn);
+
+        return container;
+    }
+
     createDeleteKeyButton(bookmark) {
         const btn = document.createElement('button');
         btn.className = 'delete-key-btn';
         btn.textContent = '×';
         btn.title = '删除快捷键';
         btn.addEventListener('click', (e) => {
-            e.stopPropagation(); // 阻止事件冒泡到 bookmark-item 的点击事件
+            e.stopPropagation();
             this.deleteBookmarkKey(bookmark);
+        });
+        return btn;
+    }
+
+    createDeleteBookmarkButton(bookmark) {
+        const btn = document.createElement('button');
+        btn.className = 'delete-bookmark-btn';
+        btn.innerHTML = '🗑️'; // 使用垃圾桶图标
+        btn.title = '删除书签';
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.deleteBookmark(bookmark);
         });
         return btn;
     }
 
     async deleteBookmarkKey(bookmark) {
         try {
-            const newTitle = bookmark.displayTitle; // displayTitle 是已经移除了 [key] 的标题
+            const newTitle = bookmark.displayTitle;
             await chrome.bookmarks.update(bookmark.id, { title: newTitle });
             console.log(`✅ 快捷键已从 "${bookmark.title}" 中删除。`);
-            this.loadBookmarks(); // 重新加载以更新列表
+            this.loadBookmarks();
         } catch (error) {
             console.error('删除快捷键失败:', error);
+        }
+    }
+
+    async deleteBookmark(bookmark) {
+        if (window.confirm(`确定要删除书签 "${bookmark.displayTitle}" 吗？`)) {
+            try {
+                await chrome.bookmarks.remove(bookmark.id);
+                console.log(`✅ 书签 "${bookmark.displayTitle}" 已被删除。`);
+                this.loadBookmarks();
+            } catch (error) {
+                console.error('删除书签失败:', error);
+            }
         }
     }
 
