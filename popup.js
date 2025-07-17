@@ -603,8 +603,9 @@ class QuickOpenSite {
     }
 
     handleKeyDown(e) {
-        // 新增：如果焦点在新增快捷键输入框，则不执行任何快捷键操作
-        if (document.activeElement === this.addKeyInput) {
+        // 新增：如果焦点在任何一个快捷键输入框中，则不执行任何快捷键操作
+        if (document.activeElement.tagName === 'INPUT' && 
+            (document.activeElement.id === 'addKeyInput' || document.activeElement.classList.contains('edit-shortcut-input'))) {
             return;
         }
 
