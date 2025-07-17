@@ -163,7 +163,13 @@ class QuickOpenSite {
                 const key = match[1].toLowerCase();
                 bookmark.key = key;
                 bookmark.displayTitle = bookmark.title.replace(/\s*\[[a-z0-9]\]/i, '').trim();
-                this.keyMapping.set(key, bookmark);
+
+                // 如果快捷键不存在，则初始化一个空数组
+                if (!this.keyMapping.has(key)) {
+                    this.keyMapping.set(key, []);
+                }
+                // 将当前书签添加到对应快捷键的数组中
+                this.keyMapping.get(key).push(bookmark);
             } else {
                 bookmark.displayTitle = bookmark.title;
             }
@@ -175,19 +181,15 @@ class QuickOpenSite {
 
         // 如果输入是单个字母或数字，优先匹配快捷键
         if (lowerQuery.length === 1 && /[a-z0-9]/.test(lowerQuery)) {
-            const exactMatch = this.keyMapping.get(lowerQuery);
+            const exactMatches = this.keyMapping.get(lowerQuery) || [];
             const otherMatches = this.bookmarks.filter(bookmark =>
-                bookmark !== exactMatch &&
+                !exactMatches.includes(bookmark) &&
                 (bookmark.displayTitle.toLowerCase().includes(lowerQuery) ||
                  bookmark.url.toLowerCase().includes(lowerQuery) ||
                  (bookmark.folder && bookmark.folder.toLowerCase().includes(lowerQuery)))
             );
 
-            this.filteredBookmarks = [];
-            if (exactMatch) {
-                this.filteredBookmarks.push(exactMatch);
-            }
-            this.filteredBookmarks.push(...otherMatches);
+            this.filteredBookmarks = [...exactMatches, ...otherMatches];
 
         } else {
             // 否则，执行常规的模糊搜索
@@ -350,10 +352,10 @@ class QuickOpenSite {
             default:
                 // 检查是否是快捷键
                 if (e.key.length === 1 && /[a-z0-9]/i.test(e.key)) {
-                    const bookmark = this.keyMapping.get(e.key.toLowerCase());
-                    if (bookmark) {
+                    const bookmarks = this.keyMapping.get(e.key.toLowerCase());
+                    if (bookmarks && bookmarks.length > 0) {
                         e.preventDefault();
-                        this.openBookmark(bookmark);
+                        this.openBookmarks(bookmarks);
                     }
                 }
         }
@@ -386,7 +388,7 @@ class QuickOpenSite {
         }
     }
 
-    async openBookmark(bookmark) {
+    async openBookmark(bookmark, closeAfter = true) {
         try {
             if (this.settings.openInNewTab) {
                 await chrome.tabs.create({ url: bookmark.url });
@@ -394,10 +396,19 @@ class QuickOpenSite {
                 const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
                 await chrome.tabs.update(activeTab.id, { url: bookmark.url });
             }
-            window.close();
+            if (closeAfter) {
+                window.close();
+            }
         } catch (error) {
             console.error('打开书签失败:', error);
         }
+    }
+
+    openBookmarks(bookmarks) {
+        bookmarks.forEach(bookmark => {
+            this.openBookmark(bookmark, false); // 打开书签，但不关闭弹窗
+        });
+        window.close(); // 所有书签打开后，关闭弹窗
     }
 
     openSettings() {
