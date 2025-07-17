@@ -241,11 +241,19 @@ class QuickOpenSite {
 
         const icon = this.createBookmarkIcon(bookmark);
         const info = this.createBookmarkInfo(bookmark);
-        const keyBadge = bookmark.key ? this.createKeyBadge(bookmark.key) : null;
 
         item.appendChild(icon);
         item.appendChild(info);
-        if (keyBadge) item.appendChild(keyBadge);
+
+        if (bookmark.key) {
+            const keyBadge = this.createKeyBadge(bookmark.key);
+            const deleteBtn = this.createDeleteKeyButton(bookmark);
+            const keyContainer = document.createElement('div');
+            keyContainer.className = 'key-container';
+            keyContainer.appendChild(keyBadge);
+            keyContainer.appendChild(deleteBtn);
+            item.appendChild(keyContainer);
+        }
 
         item.addEventListener('click', () => this.openBookmark(bookmark));
 
@@ -305,6 +313,29 @@ class QuickOpenSite {
         badge.className = 'bookmark-key';
         badge.textContent = key.toUpperCase();
         return badge;
+    }
+
+    createDeleteKeyButton(bookmark) {
+        const btn = document.createElement('button');
+        btn.className = 'delete-key-btn';
+        btn.textContent = '×';
+        btn.title = '删除快捷键';
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation(); // 阻止事件冒泡到 bookmark-item 的点击事件
+            this.deleteBookmarkKey(bookmark);
+        });
+        return btn;
+    }
+
+    async deleteBookmarkKey(bookmark) {
+        try {
+            const newTitle = bookmark.displayTitle; // displayTitle 是已经移除了 [key] 的标题
+            await chrome.bookmarks.update(bookmark.id, { title: newTitle });
+            console.log(`✅ 快捷键已从 "${bookmark.title}" 中删除。`);
+            this.loadBookmarks(); // 重新加载以更新列表
+        } catch (error) {
+            console.error('删除快捷键失败:', error);
+        }
     }
 
     formatUrl(url) {
