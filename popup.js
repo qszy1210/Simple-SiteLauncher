@@ -21,6 +21,8 @@ class QuickOpenSite {
         this.noResults = document.getElementById('noResults');
         this.addKeyInput = document.getElementById('addKeyInput');
         this.addBookmarkBtn = document.getElementById('addBookmarkBtn');
+        this.popover = document.getElementById('availableKeysPopover');
+        this.popoverContent = document.getElementById('popoverContent');
     }
 
     initEventListeners() {
@@ -48,6 +50,19 @@ class QuickOpenSite {
         // 添加书签按钮事件
         this.addBookmarkBtn.addEventListener('click', () => {
             this.addCurrentPageAsBookmark();
+        });
+
+        // 快捷键输入框的焦点事件
+        this.addKeyInput.addEventListener('focus', () => {
+            this.updateAvailableKeysPopover();
+            this.popover.style.display = 'block';
+        });
+
+        this.addKeyInput.addEventListener('blur', () => {
+            // 延迟隐藏，以便可以点击popover内的内容（如果需要的话）
+            setTimeout(() => {
+                this.popover.style.display = 'none';
+            }, 150);
         });
     }
 
@@ -88,6 +103,7 @@ class QuickOpenSite {
 
                     this.filteredBookmarks = [...this.bookmarks];
                     this.renderBookmarks();
+                    this.updateAvailableKeysPopover(); // 更新popover内容
                 } else {
                     console.warn('SiteLauncher文件夹及其直接子文件夹中没有找到任何书签。');
                     this.showEmptyState();
@@ -371,6 +387,26 @@ class QuickOpenSite {
                 console.error('删除书签失败:', error);
             }
         }
+    }
+
+    updateAvailableKeysPopover() {
+        const allKeys = 'abcdefghijklmnopqrstuvwxyz0123456789'.split('');
+        const usedKeys = new Set(this.keyMapping.keys());
+        const availableKeys = allKeys.filter(key => !usedKeys.has(key));
+
+        this.popoverContent.innerHTML = ''; // 清空旧内容
+
+        if (availableKeys.length === 0) {
+            this.popoverContent.textContent = '所有快捷键已被占用。';
+            return;
+        }
+
+        availableKeys.forEach(key => {
+            const keyElement = document.createElement('div');
+            keyElement.className = 'available-key';
+            keyElement.textContent = key;
+            this.popoverContent.appendChild(keyElement);
+        });
     }
 
     formatUrl(url) {
