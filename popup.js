@@ -317,6 +317,13 @@ class QuickOpenSite {
     }
 
     handleKeyDown(e) {
+        // 新增：按 ` 聚焦搜索框
+        if (e.key === '`' && document.activeElement !== this.searchInput) {
+            e.preventDefault();
+            this.searchInput.focus();
+            return; // 聚焦后，不再执行后续的 switch 逻辑
+        }
+
         // 如果搜索框聚焦且是普通输入，不处理
         if (document.activeElement === this.searchInput && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
             return;
