@@ -23,6 +23,7 @@ class QuickOpenSite {
         this.addBookmarkBtn = document.getElementById('addBookmarkBtn');
         this.popover = document.getElementById('availableKeysPopover');
         this.popoverContent = document.getElementById('popoverContent');
+        this.hidePopoverTimeout = null;
     }
 
     initEventListeners() {
@@ -52,22 +53,43 @@ class QuickOpenSite {
             this.addCurrentPageAsBookmark();
         });
 
-        // 快捷键输入框的焦点事件
-        this.addKeyInput.addEventListener('focus', () => {
-            this.updateAvailableKeysPopover();
-            this.popover.style.display = 'block';
-        });
+        // 统一处理触发popover的输入框的焦点事件
+        const setupPopoverEvents = (input) => {
+            input.addEventListener('focus', () => {
+                clearTimeout(this.hidePopoverTimeout);
+                const currentKey = (input === this.addKeyInput) ? null : input.closest('.bookmark-item').__bookmarkData.key;
+                this.updateAvailableKeysPopover(currentKey);
+                this.popover.style.display = 'block';
+            });
 
-        this.addKeyInput.addEventListener('blur', () => {
-            // 延迟隐藏，以便可以点击popover内的内容（如果需要的话）
-            setTimeout(() => {
-                this.popover.style.display = 'none';
-            }, 150);
-        });
+            input.addEventListener('blur', () => {
+                this.hidePopoverTimeout = setTimeout(() => {
+                    this.popover.style.display = 'none';
+                }, 150);
+            });
+        };
+
+        setupPopoverEvents(this.addKeyInput);
 
         // 阻止点击popover时输入框失焦
         this.popover.addEventListener('mousedown', (e) => {
             e.preventDefault();
+        });
+    }
+
+    initPopoverEventsForInput(input) {
+        input.addEventListener('focus', () => {
+            clearTimeout(this.hidePopoverTimeout);
+            const bookmarkItem = input.closest('.bookmark-item');
+            const currentKey = bookmarkItem ? bookmarkItem.__bookmarkData.key : null;
+            this.updateAvailableKeysPopover(currentKey);
+            this.popover.style.display = 'block';
+        });
+
+        input.addEventListener('blur', () => {
+            this.hidePopoverTimeout = setTimeout(() => {
+                this.popover.style.display = 'none';
+            }, 150);
         });
     }
 
@@ -259,6 +281,7 @@ class QuickOpenSite {
     createBookmarkItem(bookmark, index) {
         const item = document.createElement('div');
         item.className = `bookmark-item ${index === this.selectedIndex ? 'highlighted' : ''}`;
+        item.__bookmarkData = bookmark; // 将书签数据附加到DOM元素
 
         const icon = this.createBookmarkIcon(bookmark);
         const info = this.createBookmarkInfo(bookmark);
@@ -332,22 +355,54 @@ class QuickOpenSite {
         const container = document.createElement('div');
         container.className = 'actions-container';
 
-        // --- 默认显示的按钮 ---
+        // --- 1. 默认显示的按钮 ---
         const defaultActions = document.createElement('div');
         defaultActions.className = 'default-actions';
 
         if (bookmark.key) {
-            const keyBadge = this.createKeyBadge(bookmark.key);
-            const deleteKeyBtn = this.createDeleteKeyButton(bookmark);
-            defaultActions.appendChild(keyBadge);
-            defaultActions.appendChild(deleteKeyBtn);
+            defaultActions.appendChild(this.createKeyBadge(bookmark.key));
+            defaultActions.appendChild(this.createDeleteKeyButton(bookmark));
         }
-        const deleteBookmarkBtn = this.createDeleteBookmarkButton(bookmark);
-        defaultActions.appendChild(deleteBookmarkBtn);
+        defaultActions.appendChild(this.createEditShortcutButton(bookmark));
+        defaultActions.appendChild(this.createDeleteBookmarkButton(bookmark));
 
-        // --- 确认删除时显示的按钮 ---
-        const confirmationControls = document.createElement('div');
-        confirmationControls.className = 'confirmation-controls';
+        // --- 2. 确认删除时显示的按钮 ---
+        const confirmationControls = this.createConfirmationControls(bookmark);
+
+        // --- 3. 编辑快捷键时显示的表单 ---
+        const editShortcutForm = this.createEditShortcutForm(bookmark);
+
+        // --- 将所有部分都添加到主容器中 ---
+        container.appendChild(defaultActions);
+        container.appendChild(confirmationControls);
+        container.appendChild(editShortcutForm);
+
+        return container;
+    }
+
+    createEditShortcutButton(bookmark) {
+        const btn = document.createElement('button');
+        btn.className = 'edit-shortcut-btn';
+        btn.innerHTML = '✏️';
+        btn.title = bookmark.key ? '修改快捷键' : '添加快捷键';
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const currentItem = e.currentTarget.closest('.bookmark-item');
+
+            // 关闭所有其他正在操作的项
+            this.resetAllItemStates();
+
+            currentItem.classList.add('is-editing-shortcut');
+            const input = currentItem.querySelector('.edit-shortcut-input');
+            input.focus();
+            input.value = bookmark.key || '';
+        });
+        return btn;
+    }
+
+    createConfirmationControls(bookmark) {
+        const controls = document.createElement('div');
+        controls.className = 'confirmation-controls';
 
         const confirmBtn = document.createElement('button');
         confirmBtn.className = 'confirm-btn';
@@ -364,17 +419,56 @@ class QuickOpenSite {
         cancelBtn.title = '取消';
         cancelBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            container.parentElement.classList.remove('is-confirming-delete');
+            e.currentTarget.closest('.bookmark-item').classList.remove('is-confirming-delete');
         });
 
-        confirmationControls.appendChild(confirmBtn);
-        confirmationControls.appendChild(cancelBtn);
+        controls.appendChild(confirmBtn);
+        controls.appendChild(cancelBtn);
+        return controls;
+    }
 
-        // --- 将两组按钮都添加到容器中 ---
-        container.appendChild(defaultActions);
-        container.appendChild(confirmationControls);
+    createEditShortcutForm(bookmark) {
+        const form = document.createElement('div');
+        form.className = 'edit-shortcut-form';
+        form.addEventListener('click', e => e.stopPropagation()); // 阻止整个表单的点击冒泡
 
-        return container;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.maxLength = 1;
+        input.className = 'edit-shortcut-input';
+
+        // 将popover事件绑定委托给initEventListeners中的统一处理器
+        this.initPopoverEventsForInput(input);
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.stopPropagation();
+                this.updateBookmarkKey(bookmark, input.value);
+            }
+        });
+
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'confirm-btn';
+        saveBtn.innerHTML = '✅';
+        saveBtn.title = '保存';
+        saveBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.updateBookmarkKey(bookmark, input.value);
+        });
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'cancel-btn';
+        cancelBtn.innerHTML = '❌';
+        cancelBtn.title = '取消';
+        cancelBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.currentTarget.closest('.bookmark-item').classList.remove('is-editing-shortcut');
+        });
+
+        form.appendChild(input);
+        form.appendChild(saveBtn);
+        form.appendChild(cancelBtn);
+        return form;
     }
 
     createDeleteKeyButton(bookmark) {
@@ -430,9 +524,42 @@ class QuickOpenSite {
         }
     }
 
-    updateAvailableKeysPopover() {
+    async updateBookmarkKey(bookmark, newKey) {
+        const key = newKey.trim().toLowerCase();
+        if (!key || !/^[a-z0-9]$/.test(key)) {
+            console.warn('无效的快捷键输入。');
+            // 可以在这里添加视觉反馈
+            return;
+        }
+
+        try {
+            // 移除旧的快捷键（如果有的话），然后添加新的
+            const baseTitle = bookmark.displayTitle;
+            const newTitle = `${baseTitle} [${key}]`;
+
+            await chrome.bookmarks.update(bookmark.id, { title: newTitle });
+            console.log(`✅ 书签 "${baseTitle}" 的快捷键已更新为 "${key}"`);
+            this.loadBookmarks(); // 重新加载以反映变化
+        } catch (error) {
+            console.error('更新快捷键失败:', error);
+        }
+    }
+
+    resetAllItemStates() {
+        this.bookmarksList.querySelectorAll('.bookmark-item').forEach(item => {
+            item.classList.remove('is-confirming-delete', 'is-editing-shortcut');
+        });
+    }
+
+    updateAvailableKeysPopover(currentKeyToIgnore = null) {
         const allKeys = 'abcdefghijklmnopqrstuvwxyz0123456789'.split('');
         const usedKeys = new Set(this.keyMapping.keys());
+
+        // 在编辑模式下，当前快捷键也应被视为可用
+        if (currentKeyToIgnore) {
+            usedKeys.delete(currentKeyToIgnore);
+        }
+
         const availableKeys = allKeys.filter(key => !usedKeys.has(key));
 
         this.popoverContent.innerHTML = ''; // 清空旧内容
@@ -447,8 +574,11 @@ class QuickOpenSite {
             keyElement.className = 'available-key';
             keyElement.textContent = key;
             keyElement.addEventListener('click', () => {
-                this.addKeyInput.value = key;
-                this.addKeyInput.focus(); // 将焦点重新设置到输入框
+                // 尝试找到当前聚焦的内联输入框并填入值
+                const focusedItem = this.bookmarksList.querySelector('.is-editing-shortcut');
+                const input = focusedItem ? focusedItem.querySelector('.edit-shortcut-input') : this.addKeyInput;
+                input.value = key;
+                input.focus();
             });
             this.popoverContent.appendChild(keyElement);
         });

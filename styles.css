@@ -241,6 +241,49 @@ body {
     color: white;
 }
 
+.edit-shortcut-btn {
+    background: transparent;
+    color: #999;
+    border: none;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.edit-shortcut-btn:hover {
+    background: #667eea;
+    color: white;
+}
+
+/* 新增：内联编辑表单 */
+.edit-shortcut-form {
+    display: none; /* 默认隐藏 */
+    align-items: center;
+    gap: 6px;
+}
+
+.edit-shortcut-form input {
+    width: 40px;
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 12px;
+}
+
+.edit-shortcut-form .confirm-btn,
+.edit-shortcut-form .cancel-btn {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+}
+
 /* 新增：确认删除按钮样式 */
 .confirmation-controls {
     display: none; /* 默认隐藏 */
@@ -282,12 +325,17 @@ body {
 }
 
 /* 当处于确认状态时的样式切换 */
-.bookmark-item.is-confirming-delete .default-actions {
-    display: none; /* 隐藏默认按钮 */
+.bookmark-item.is-confirming-delete .default-actions,
+.bookmark-item.is-editing-shortcut .default-actions {
+    display: none;
 }
 
 .bookmark-item.is-confirming-delete .confirmation-controls {
-    display: flex; /* 显示确认按钮 */
+    display: flex;
+}
+
+.bookmark-item.is-editing-shortcut .edit-shortcut-form {
+    display: flex;
 }
 
 /* 空状态 */
