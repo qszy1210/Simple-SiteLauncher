@@ -64,6 +64,11 @@ class QuickOpenSite {
                 this.popover.style.display = 'none';
             }, 150);
         });
+
+        // 阻止点击popover时输入框失焦
+        this.popover.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+        });
     }
 
     async loadSettings() {
@@ -405,6 +410,10 @@ class QuickOpenSite {
             const keyElement = document.createElement('div');
             keyElement.className = 'available-key';
             keyElement.textContent = key;
+            keyElement.addEventListener('click', () => {
+                this.addKeyInput.value = key;
+                this.addKeyInput.focus(); // 将焦点重新设置到输入框
+            });
             this.popoverContent.appendChild(keyElement);
         });
     }
