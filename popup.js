@@ -19,6 +19,8 @@ class QuickOpenSite {
         this.loading = document.getElementById('loading');
         this.emptyState = document.getElementById('emptyState');
         this.noResults = document.getElementById('noResults');
+        this.addKeyInput = document.getElementById('addKeyInput');
+        this.addBookmarkBtn = document.getElementById('addBookmarkBtn');
     }
 
     initEventListeners() {
@@ -41,6 +43,11 @@ class QuickOpenSite {
         // // 阻止输入框的右键菜单
         this.searchInput.addEventListener('contextmenu', (e) => {
             e.stopPropagation();
+        });
+
+        // 添加书签按钮事件
+        this.addBookmarkBtn.addEventListener('click', () => {
+            this.addCurrentPageAsBookmark();
         });
     }
 
@@ -319,6 +326,11 @@ class QuickOpenSite {
     }
 
     handleKeyDown(e) {
+        // 新增：如果焦点在新增快捷键输入框，则不执行任何快捷键操作
+        if (document.activeElement === this.addKeyInput) {
+            return;
+        }
+
         // 新增：按 ` 聚焦搜索框
         if (e.key === '`' && document.activeElement !== this.searchInput) {
             e.preventDefault();
@@ -409,6 +421,49 @@ class QuickOpenSite {
             this.openBookmark(bookmark, false); // 打开书签，但不关闭弹窗
         });
         window.close(); // 所有书签打开后，关闭弹窗
+    }
+
+    async addCurrentPageAsBookmark() {
+        const key = this.addKeyInput.value.trim().toLowerCase();
+        if (!key || !/^[a-z0-9]$/.test(key)) {
+            console.warn('无效的快捷键输入。');
+            // 可以在这里给用户一些视觉反馈，比如输入框闪烁
+            this.addKeyInput.style.borderColor = 'red';
+            setTimeout(() => { this.addKeyInput.style.borderColor = '#ddd'; }, 1000);
+            return;
+        }
+
+        try {
+            const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (!activeTab || !activeTab.url || activeTab.url.startsWith('chrome://')) {
+                console.warn('无法收藏当前页面。');
+                // 可以在页面上给用户提示
+                return;
+            }
+
+            const siteLauncherFolder = this.findSiteLauncherFolder(await chrome.bookmarks.getTree());
+            if (!siteLauncherFolder) {
+                console.error('未找到SiteLauncher文件夹，无法添加书签。');
+                this.showEmptyState(); // 提示用户创建文件夹
+                return;
+            }
+
+            const title = `${activeTab.title} [${key}]`;
+
+            await chrome.bookmarks.create({
+                parentId: siteLauncherFolder.id,
+                title: title,
+                url: activeTab.url
+            });
+
+            console.log(`✅ 书签 "${title}" 已成功添加。`);
+            // 清空输入框并重新加载书签列表
+            this.addKeyInput.value = '';
+            this.loadBookmarks(); // 重新加载以显示新书签
+
+        } catch (error) {
+            console.error('添加书签失败:', error);
+        }
     }
 
     openSettings() {

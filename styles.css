@@ -237,6 +237,51 @@ body {
     opacity: 0.8;
 }
 
+/* 新增：添加书签表单样式 */
+.add-bookmark-form {
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+}
+
+#addKeyInput {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    outline: none;
+    text-align: center;
+    transition: border-color 0.3s ease;
+}
+
+#addKeyInput:focus {
+    border-color: #4facfe;
+}
+
+#addBookmarkBtn {
+    flex: 3;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+#addBookmarkBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(79, 172, 254, 0.4);
+}
+
+#addBookmarkBtn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(79, 172, 254, 0.3);
+}
+
 /* 滚动条样式 */
 .content::-webkit-scrollbar {
     width: 6px;
