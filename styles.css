@@ -198,26 +198,27 @@ body {
     margin-left: auto; /* 将容器推到最右侧 */
 }
 
+.default-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .delete-key-btn {
-    background: #fdd8d8;
-    color: #d32f2f;
-    border: 1px solid #fbc2c2;
-    border-radius: 50%;
-    width: 22px;
-    height: 22px;
+    background: #fce4e4;
+    color: #c62828;
+    border: none;
+    border-radius: 6px; /* 改为圆角矩形 */
+    padding: 4px 8px;
     font-size: 12px;
     font-weight: bold;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     transition: all 0.2s ease;
 }
 
 .delete-key-btn:hover {
-    background: #d32f2f;
+    background: #c62828;
     color: white;
-    border-color: #d32f2f;
 }
 
 .delete-bookmark-btn {
@@ -238,6 +239,55 @@ body {
 .delete-bookmark-btn:hover {
     background: #d32f2f;
     color: white;
+}
+
+/* 新增：确认删除按钮样式 */
+.confirmation-controls {
+    display: none; /* 默认隐藏 */
+    align-items: center;
+    gap: 8px;
+}
+
+.confirm-btn, .cancel-btn {
+    border: none;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.confirm-btn {
+    background: #e0f2e9;
+    color: #2e7d32;
+}
+
+.confirm-btn:hover {
+    background: #2e7d32;
+    color: white;
+}
+
+.cancel-btn {
+    background: #fce4e4;
+    color: #c62828;
+}
+
+.cancel-btn:hover {
+    background: #c62828;
+    color: white;
+}
+
+/* 当处于确认状态时的样式切换 */
+.bookmark-item.is-confirming-delete .default-actions {
+    display: none; /* 隐藏默认按钮 */
+}
+
+.bookmark-item.is-confirming-delete .confirmation-controls {
+    display: flex; /* 显示确认按钮 */
 }
 
 /* 空状态 */

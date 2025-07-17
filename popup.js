@@ -332,17 +332,47 @@ class QuickOpenSite {
         const container = document.createElement('div');
         container.className = 'actions-container';
 
-        // 如果有快捷键，则显示快捷键和删除快捷键按钮
+        // --- 默认显示的按钮 ---
+        const defaultActions = document.createElement('div');
+        defaultActions.className = 'default-actions';
+
         if (bookmark.key) {
             const keyBadge = this.createKeyBadge(bookmark.key);
             const deleteKeyBtn = this.createDeleteKeyButton(bookmark);
-            container.appendChild(keyBadge);
-            container.appendChild(deleteKeyBtn);
+            defaultActions.appendChild(keyBadge);
+            defaultActions.appendChild(deleteKeyBtn);
         }
-
-        // 添加删除整个书签的按钮
         const deleteBookmarkBtn = this.createDeleteBookmarkButton(bookmark);
-        container.appendChild(deleteBookmarkBtn);
+        defaultActions.appendChild(deleteBookmarkBtn);
+
+        // --- 确认删除时显示的按钮 ---
+        const confirmationControls = document.createElement('div');
+        confirmationControls.className = 'confirmation-controls';
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.className = 'confirm-btn';
+        confirmBtn.innerHTML = '✅';
+        confirmBtn.title = '确认删除';
+        confirmBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.deleteBookmark(bookmark, true);
+        });
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'cancel-btn';
+        cancelBtn.innerHTML = '❌';
+        cancelBtn.title = '取消';
+        cancelBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            container.parentElement.classList.remove('is-confirming-delete');
+        });
+
+        confirmationControls.appendChild(confirmBtn);
+        confirmationControls.appendChild(cancelBtn);
+
+        // --- 将两组按钮都添加到容器中 ---
+        container.appendChild(defaultActions);
+        container.appendChild(confirmationControls);
 
         return container;
     }
@@ -350,7 +380,7 @@ class QuickOpenSite {
     createDeleteKeyButton(bookmark) {
         const btn = document.createElement('button');
         btn.className = 'delete-key-btn';
-        btn.textContent = '×';
+        btn.textContent = 'X'; // 使用大写X以示区别
         btn.title = '删除快捷键';
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -366,7 +396,13 @@ class QuickOpenSite {
         btn.title = '删除书签';
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.deleteBookmark(bookmark);
+            // 切换到确认状态
+            const currentItem = e.currentTarget.closest('.bookmark-item');
+            // 先移除其他所有项的确认状态
+            this.bookmarksList.querySelectorAll('.is-confirming-delete').forEach(item => {
+                item.classList.remove('is-confirming-delete');
+            });
+            currentItem.classList.add('is-confirming-delete');
         });
         return btn;
     }
@@ -382,15 +418,15 @@ class QuickOpenSite {
         }
     }
 
-    async deleteBookmark(bookmark) {
-        if (window.confirm(`确定要删除书签 "${bookmark.displayTitle}" 吗？`)) {
-            try {
-                await chrome.bookmarks.remove(bookmark.id);
-                console.log(`✅ 书签 "${bookmark.displayTitle}" 已被删除。`);
-                this.loadBookmarks();
-            } catch (error) {
-                console.error('删除书签失败:', error);
-            }
+    async deleteBookmark(bookmark, confirmed = false) {
+        if (!confirmed) return; // 如果没有确认，则不执行任何操作
+
+        try {
+            await chrome.bookmarks.remove(bookmark.id);
+            console.log(`✅ 书签 "${bookmark.displayTitle}" 已被删除。`);
+            this.loadBookmarks();
+        } catch (error) {
+            console.error('删除书签失败:', error);
         }
     }
 
