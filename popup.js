@@ -172,12 +172,32 @@ class QuickOpenSite {
 
     filterBookmarks(query) {
         const lowerQuery = query.toLowerCase();
-        this.filteredBookmarks = this.bookmarks.filter(bookmark =>
-            bookmark.displayTitle.toLowerCase().includes(lowerQuery) ||
-            bookmark.url.toLowerCase().includes(lowerQuery) ||
-            (bookmark.key && bookmark.key.includes(lowerQuery)) ||
-            (bookmark.folder && bookmark.folder.toLowerCase().includes(lowerQuery))
-        );
+
+        // 如果输入是单个字母或数字，优先匹配快捷键
+        if (lowerQuery.length === 1 && /[a-z0-9]/.test(lowerQuery)) {
+            const exactMatch = this.keyMapping.get(lowerQuery);
+            const otherMatches = this.bookmarks.filter(bookmark =>
+                bookmark !== exactMatch &&
+                (bookmark.displayTitle.toLowerCase().includes(lowerQuery) ||
+                 bookmark.url.toLowerCase().includes(lowerQuery) ||
+                 (bookmark.folder && bookmark.folder.toLowerCase().includes(lowerQuery)))
+            );
+
+            this.filteredBookmarks = [];
+            if (exactMatch) {
+                this.filteredBookmarks.push(exactMatch);
+            }
+            this.filteredBookmarks.push(...otherMatches);
+
+        } else {
+            // 否则，执行常规的模糊搜索
+            this.filteredBookmarks = this.bookmarks.filter(bookmark =>
+                bookmark.displayTitle.toLowerCase().includes(lowerQuery) ||
+                bookmark.url.toLowerCase().includes(lowerQuery) ||
+                (bookmark.key && bookmark.key.includes(lowerQuery)) ||
+                (bookmark.folder && bookmark.folder.toLowerCase().includes(lowerQuery))
+            );
+        }
 
         this.selectedIndex = 0;
         this.renderBookmarks();
