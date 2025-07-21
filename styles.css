@@ -74,6 +74,29 @@ body {
     opacity: 0.7;
 }
 
+.clear-search-btn {
+    position: absolute;
+    right: 36px; /* 调整位置，在搜索图标左边 */
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    z-index: 1; /* 确保在搜索图标上方 */
+}
+
+.clear-search-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
 /* 内容区域 */
 .content {
     flex: 1;

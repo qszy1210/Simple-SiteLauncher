@@ -15,6 +15,7 @@ class QuickOpenSite {
 
     initElements() {
         this.searchInput = document.getElementById('searchInput');
+        this.clearSearchBtn = document.getElementById('clearSearchBtn');
         this.bookmarksList = document.getElementById('bookmarksList');
         this.loading = document.getElementById('loading');
         this.emptyState = document.getElementById('emptyState');
@@ -24,12 +25,21 @@ class QuickOpenSite {
         this.popover = document.getElementById('availableKeysPopover');
         this.popoverContent = document.getElementById('popoverContent');
         this.hidePopoverTimeout = null;
+        this.searchTimeout = null;
     }
 
     initEventListeners() {
         // 搜索输入事件
         this.searchInput.addEventListener('input', (e) => {
-            this.filterBookmarks(e.target.value);
+            const value = e.target.value;
+            this.filterBookmarks(value);
+            this.toggleClearButton(value);
+            this.handleSearchAutoSelect(value);
+        });
+
+        // 清除搜索按钮事件
+        this.clearSearchBtn.addEventListener('click', () => {
+            this.clearSearch();
         });
 
         // 键盘事件
@@ -253,6 +263,50 @@ class QuickOpenSite {
 
         this.selectedIndex = 0;
         this.renderBookmarks();
+    }
+
+    toggleClearButton(value) {
+        if (value.length > 0) {
+            this.clearSearchBtn.style.display = 'flex';
+            // 搜索图标保持显示，清除按钮显示在其左边
+        } else {
+            this.clearSearchBtn.style.display = 'none';
+        }
+    }
+
+    clearSearch() {
+        this.searchInput.value = '';
+        this.filterBookmarks('');
+        this.toggleClearButton('');
+        this.searchInput.focus();
+        
+        // 清除自动选择定时器
+        if (this.searchTimeout) {
+            clearTimeout(this.searchTimeout);
+            this.searchTimeout = null;
+        }
+    }
+
+    handleSearchAutoSelect(value) {
+        // 清除之前的定时器
+        if (this.searchTimeout) {
+            clearTimeout(this.searchTimeout);
+            this.searchTimeout = null;
+        }
+
+        // 如果有输入内容，设置2秒后自动选中文本
+        if (value.length > 0) {
+            this.searchTimeout = setTimeout(() => {
+                // 检查输入框是否仍然有相同的内容，并且用户没有继续输入
+                if (this.searchInput.value === value && this.searchInput.value.length > 0) {
+                    // 聚焦输入框并选中所有文本
+                    this.searchInput.focus();
+                    this.searchInput.select();
+                    console.log('自动选中搜索文本:', value); // 调试信息
+                }
+                this.searchTimeout = null;
+            }, 1000);
+        }
     }
 
     renderBookmarks() {
@@ -640,8 +694,9 @@ class QuickOpenSite {
                 window.close();
                 break;
             default:
-                // 检查是否是快捷键
-                if (e.key.length === 1 && /[a-z0-9]/i.test(e.key)) {
+                // 检查是否是快捷键 - 只有在没有功能控制键按下时才响应
+                if (e.key.length === 1 && /[a-z0-9]/i.test(e.key) && 
+                    !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
                     const bookmarks = this.keyMapping.get(e.key.toLowerCase());
                     if (bookmarks && bookmarks.length > 0) {
                         e.preventDefault();
