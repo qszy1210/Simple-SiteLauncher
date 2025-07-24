@@ -243,60 +243,124 @@ class QuickOpenSite {
         return item;
     }
 
+    /**
+     * 创建书签图标元素
+     * 
+     * 实现渐进式加载策略：
+     * 1. 立即显示首字母作为占位符
+     * 2. 异步加载真实的favicon
+     * 3. 成功时替换为图标，失败时保持首字母
+     * 
+     * @param {Object} bookmark - 书签对象
+     * @returns {HTMLElement} - 图标DOM元素
+     */
     createBookmarkIcon(bookmark) {
+        // 创建图标容器
         const iconElement = document.createElement('div');
         iconElement.className = 'bookmark-icon';
+        
+        // 生成首字母作为回退显示
         const fallbackText = bookmark.displayTitle.charAt(0).toUpperCase();
         iconElement.textContent = fallbackText;
+        
+        // 异步加载真实的favicon
         this.loadBookmarkIcon(iconElement, bookmark, fallbackText);
+        
         return iconElement;
     }
 
+    /**
+     * 异步加载书签图标
+     * 
+     * 加载流程：
+     * 1. 从缓存系统获取favicon数据
+     * 2. 如果有数据：设置base64图片
+     * 3. 如果无数据：标记为失败状态（保持首字母显示）
+     * 4. 错误处理：添加错误样式
+     * 
+     * @param {HTMLElement} iconElement - 图标容器元素
+     * @param {Object} bookmark - 书签对象
+     * @param {string} fallbackText - 回退显示的首字母
+     */
     async loadBookmarkIcon(iconElement, bookmark, fallbackText) {
         try {
             const domain = new URL(bookmark.url).hostname;
             console.log(`[ICON] 开始加载图标: ${domain}`);
             
+            // 从缓存系统获取favicon数据（可能是base64或null）
             const faviconData = await this.getFaviconCached(bookmark.url);
             console.log(`[ICON] 获取到数据: ${domain}`, faviconData ? '有数据' : '无数据');
             
             if (faviconData && iconElement.parentNode) {
+                // 有数据：设置base64图片
                 console.log(`[ICON] 设置base64图片: ${domain}`);
                 this.setBase64Image(iconElement, faviconData, fallbackText);
             } else if (iconElement.parentNode) {
+                // 无数据：标记为失败状态，保持首字母显示
                 console.log(`[ICON] 设置为失败状态: ${domain}`);
                 iconElement.classList.add('cached-failed');
             }
         } catch (error) {
             console.error('加载书签图标失败:', error);
+            // 错误处理：添加错误样式
             if (iconElement.parentNode) iconElement.classList.add('error');
         }
     }
 
+    /**
+     * 设置base64格式的图片
+     * 
+     * 这是真正消除闪烁的关键方法：
+     * - 使用base64数据，无需网络请求
+     * - 立即显示，无加载延迟
+     * - 错误时优雅降级到首字母
+     * 
+     * @param {HTMLElement} iconElement - 图标容器元素
+     * @param {string} base64Data - base64格式的图片数据
+     * @param {string} fallbackText - 失败时显示的首字母
+     */
     setBase64Image(iconElement, base64Data, fallbackText) {
         const img = new Image();
+        
+        // 图片加载成功 - 替换首字母为真实图标
         img.onload = () => {
             if (iconElement.parentNode) {
-                iconElement.innerHTML = '';
+                iconElement.innerHTML = ''; // 清除首字母
                 iconElement.appendChild(img);
                 img.style.width = '100%';
                 img.style.height = '100%';
                 img.style.borderRadius = '4px';
-                iconElement.classList.add('loaded');
+                iconElement.classList.add('loaded'); // 添加成功状态样式
             }
         };
+        
+        // 图片加载失败 - 保持首字母显示
         img.onerror = () => {
             if (iconElement.parentNode) {
                 iconElement.textContent = fallbackText;
-                iconElement.classList.add('cached-failed');
+                iconElement.classList.add('cached-failed'); // 添加失败状态样式
             }
         };
+        
+        // 设置base64数据源 - 这里不会触发网络请求
         img.src = base64Data;
     }
 
+    /**
+     * 从缓存系统获取favicon
+     * 
+     * 这是popup与缓存系统的接口方法：
+     * - 提取域名作为缓存键
+     * - 调用缓存系统的get方法
+     * - 处理错误并返回null
+     * 
+     * @param {string} url - 完整的网站URL
+     * @returns {Promise<string|null>} - base64格式的favicon数据或null
+     */
     async getFaviconCached(url) {
         try {
             const urlObj = new URL(url);
+            // 使用域名作为缓存键，传递完整URL用于生成favicon URL
             return await this.faviconCache.get(urlObj.hostname, url);
         } catch (error) {
             console.error('获取缓存favicon失败:', error);
