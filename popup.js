@@ -7,10 +7,14 @@ class QuickOpenSite {
         this.selectedIndex = 0;
         this.settings = { openInNewTab: true };
 
+        this.faviconCache = new FaviconCache();
+
         this.initElements();
         this.initEventListeners();
         this.loadSettings();
         this.loadBookmarks();
+
+        // this.faviconCache.clear();
     }
 
     initElements() {
@@ -29,7 +33,6 @@ class QuickOpenSite {
     }
 
     initEventListeners() {
-        // 搜索输入事件
         this.searchInput.addEventListener('input', (e) => {
             const value = e.target.value;
             this.filterBookmarks(value);
@@ -37,33 +40,11 @@ class QuickOpenSite {
             this.handleSearchAutoSelect(value);
         });
 
-        // 清除搜索按钮事件
-        this.clearSearchBtn.addEventListener('click', () => {
-            this.clearSearch();
-        });
+        this.clearSearchBtn.addEventListener('click', () => this.clearSearch());
+        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+        this.searchInput.addEventListener('contextmenu', (e) => e.stopPropagation());
+        this.addBookmarkBtn.addEventListener('click', () => this.addCurrentPageAsBookmark());
 
-        // 键盘事件
-        document.addEventListener('keydown', (e) => {
-            this.handleKeyDown(e);
-        });
-
-        // 右键菜单 - 打开设置
-        document.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            this.openSettings();
-        });
-
-        // // 阻止输入框的右键菜单
-        this.searchInput.addEventListener('contextmenu', (e) => {
-            e.stopPropagation();
-        });
-
-        // 添加书签按钮事件
-        this.addBookmarkBtn.addEventListener('click', () => {
-            this.addCurrentPageAsBookmark();
-        });
-
-        // 统一处理触发popover的输入框的焦点事件
         const setupPopoverEvents = (input) => {
             input.addEventListener('focus', () => {
                 clearTimeout(this.hidePopoverTimeout);
@@ -71,7 +52,6 @@ class QuickOpenSite {
                 this.updateAvailableKeysPopover(currentKey);
                 this.popover.style.display = 'block';
             });
-
             input.addEventListener('blur', () => {
                 this.hidePopoverTimeout = setTimeout(() => {
                     this.popover.style.display = 'none';
@@ -80,11 +60,7 @@ class QuickOpenSite {
         };
 
         setupPopoverEvents(this.addKeyInput);
-
-        // 阻止点击popover时输入框失焦
-        this.popover.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-        });
+        this.popover.addEventListener('mousedown', (e) => e.preventDefault());
     }
 
     initPopoverEventsForInput(input) {
@@ -95,7 +71,6 @@ class QuickOpenSite {
             this.updateAvailableKeysPopover(currentKey);
             this.popover.style.display = 'block';
         });
-
         input.addEventListener('blur', () => {
             this.hidePopoverTimeout = setTimeout(() => {
                 this.popover.style.display = 'none';
@@ -119,17 +94,11 @@ class QuickOpenSite {
             const siteLauncherFolder = this.findSiteLauncherFolder(bookmarkTree);
 
             if (siteLauncherFolder) {
-                console.log('✅ 找到SiteLauncher文件夹:', siteLauncherFolder);
                 const children = await chrome.bookmarks.getChildren(siteLauncherFolder.id);
-                console.log(`➡️ SiteLauncher包含 ${children.length} 个直接子项目。`);
-
                 this.bookmarks = await this.processBookmarkItems(children);
-                console.log(`✅ 处理后共找到 ${this.bookmarks.length} 个书签。`, this.bookmarks);
 
                 if (this.bookmarks.length > 0) {
                     this.parseKeyMappings();
-
-                    // 排序书签：有快捷键的优先
                     this.bookmarks.sort((a, b) => {
                         const aHasKey = !!a.key;
                         const bHasKey = !!b.key;
@@ -137,16 +106,13 @@ class QuickOpenSite {
                         if (!aHasKey && bHasKey) return 1;
                         return a.displayTitle.localeCompare(b.displayTitle);
                     });
-
                     this.filteredBookmarks = [...this.bookmarks];
                     this.renderBookmarks();
-                    this.updateAvailableKeysPopover(); // 更新popover内容
+                    this.updateAvailableKeysPopover();
                 } else {
-                    console.warn('SiteLauncher文件夹及其直接子文件夹中没有找到任何书签。');
                     this.showEmptyState();
                 }
             } else {
-                console.error('❌ 未找到SiteLauncher文件夹');
                 this.showEmptyState();
             }
         } catch (error) {
@@ -159,9 +125,7 @@ class QuickOpenSite {
 
     findSiteLauncherFolder(nodes) {
         for (const node of nodes) {
-            if (node.title === 'SiteLauncher' && node.children) {
-                return node;
-            }
+            if (node.title === 'SiteLauncher' && node.children) return node;
             if (node.children) {
                 const found = this.findSiteLauncherFolder(node.children);
                 if (found) return found;
@@ -172,63 +136,33 @@ class QuickOpenSite {
 
     async processBookmarkItems(items) {
         const bookmarkPromises = items.map(async (item) => {
-            // A bookmark item has a `url` property.
             if (item.url) {
-                console.log(`➡️ 处理直接书签: "${item.title}"`);
-                return {
-                    id: item.id,
-                    title: item.title,
-                    url: item.url,
-                    favicon: this.getFavicon(item.url)
-                };
-            }
-            // A folder item does NOT have a `url` property.
-            else {
-                console.log(`➡️ 处理子文件夹: "${item.title}". 正在获取其内容...`);
+                return { id: item.id, title: item.title, url: item.url };
+            } else {
                 const subFolderChildren = await chrome.bookmarks.getChildren(item.id);
-                console.log(`   - 子文件夹 "${item.title}" 包含 ${subFolderChildren.length} 个项目。`);
-
                 return subFolderChildren
-                    .filter(child => {
-                        const isBookmark = !!child.url;
-                        if (!isBookmark) {
-                            console.log(`   - 忽略嵌套的子文件夹: "${child.title}"`);
-                        }
-                        return isBookmark;
-                    }) // 只处理书签，忽略更深层的文件夹
-                    .map(bookmark => {
-                        console.log(`   - ✅ 成功从 "${item.title}" 中提取书签: "${bookmark.title}"`);
-                        return {
-                            id: bookmark.id,
-                            title: bookmark.title,
-                            url: bookmark.url,
-                            favicon: this.getFavicon(bookmark.url),
-                            folder: item.title // 记录其所属的文件夹名称
-                        };
-                    });
+                    .filter(child => !!child.url)
+                    .map(bookmark => ({
+                        id: bookmark.id,
+                        title: bookmark.title,
+                        url: bookmark.url,
+                        folder: item.title
+                    }));
             }
         });
-
-        // 等待所有异步操作完成，然后将多维数组展平为一维数组
         const nestedBookmarks = await Promise.all(bookmarkPromises);
         return nestedBookmarks.flat();
     }
 
     parseKeyMappings() {
         this.keyMapping.clear();
-
         this.bookmarks.forEach(bookmark => {
             const match = bookmark.title.match(/\[([a-z0-9])\]/i);
             if (match) {
                 const key = match[1].toLowerCase();
                 bookmark.key = key;
                 bookmark.displayTitle = bookmark.title.replace(/\s*\[[a-z0-9]\]/i, '').trim();
-
-                // 如果快捷键不存在，则初始化一个空数组
-                if (!this.keyMapping.has(key)) {
-                    this.keyMapping.set(key, []);
-                }
-                // 将当前书签添加到对应快捷键的数组中
+                if (!this.keyMapping.has(key)) this.keyMapping.set(key, []);
                 this.keyMapping.get(key).push(bookmark);
             } else {
                 bookmark.displayTitle = bookmark.title;
@@ -238,8 +172,6 @@ class QuickOpenSite {
 
     filterBookmarks(query) {
         const lowerQuery = query.toLowerCase();
-
-        // 如果输入是单个字母或数字，优先匹配快捷键
         if (lowerQuery.length === 1 && /[a-z0-9]/.test(lowerQuery)) {
             const exactMatches = this.keyMapping.get(lowerQuery) || [];
             const otherMatches = this.bookmarks.filter(bookmark =>
@@ -248,11 +180,8 @@ class QuickOpenSite {
                  bookmark.url.toLowerCase().includes(lowerQuery) ||
                  (bookmark.folder && bookmark.folder.toLowerCase().includes(lowerQuery)))
             );
-
             this.filteredBookmarks = [...exactMatches, ...otherMatches];
-
         } else {
-            // 否则，执行常规的模糊搜索
             this.filteredBookmarks = this.bookmarks.filter(bookmark =>
                 bookmark.displayTitle.toLowerCase().includes(lowerQuery) ||
                 bookmark.url.toLowerCase().includes(lowerQuery) ||
@@ -260,18 +189,12 @@ class QuickOpenSite {
                 (bookmark.folder && bookmark.folder.toLowerCase().includes(lowerQuery))
             );
         }
-
         this.selectedIndex = 0;
         this.renderBookmarks();
     }
 
     toggleClearButton(value) {
-        if (value.length > 0) {
-            this.clearSearchBtn.style.display = 'flex';
-            // 搜索图标保持显示，清除按钮显示在其左边
-        } else {
-            this.clearSearchBtn.style.display = 'none';
-        }
+        this.clearSearchBtn.style.display = value.length > 0 ? 'flex' : 'none';
     }
 
     clearSearch() {
@@ -279,53 +202,30 @@ class QuickOpenSite {
         this.filterBookmarks('');
         this.toggleClearButton('');
         this.searchInput.focus();
-        
-        // 清除自动选择定时器
-        if (this.searchTimeout) {
-            clearTimeout(this.searchTimeout);
-            this.searchTimeout = null;
-        }
+        if (this.searchTimeout) clearTimeout(this.searchTimeout);
     }
 
     handleSearchAutoSelect(value) {
-        // 清除之前的定时器
-        if (this.searchTimeout) {
-            clearTimeout(this.searchTimeout);
-            this.searchTimeout = null;
-        }
-
-        // 如果有输入内容，设置2秒后自动选中文本
+        if (this.searchTimeout) clearTimeout(this.searchTimeout);
         if (value.length > 0) {
             this.searchTimeout = setTimeout(() => {
-                // 检查输入框是否仍然有相同的内容，并且用户没有继续输入
-                if (this.searchInput.value === value && this.searchInput.value.length > 0) {
-                    // 聚焦输入框并选中所有文本
+                if (this.searchInput.value === value) {
                     this.searchInput.focus();
                     this.searchInput.select();
-                    console.log('自动选中搜索文本:', value); // 调试信息
                 }
-                this.searchTimeout = null;
             }, 1000);
         }
     }
 
     renderBookmarks() {
-        this.bookmarksList.innerHTML = ''; // 先清空列表
-
+        this.bookmarksList.innerHTML = '';
         if (this.filteredBookmarks.length === 0) {
-            // 如果是在搜索后没有结果，显示“无结果”
-            if (this.searchInput.value) {
-                this.showNoResults();
-            } else { // 如果是初始加载就没有书签，显示“空状态”
-                this.showEmptyState();
-            }
+            this.searchInput.value ? this.showNoResults() : this.showEmptyState();
             return;
         }
-
         this.bookmarksList.style.display = 'block';
         this.emptyState.style.display = 'none';
         this.noResults.style.display = 'none';
-
         this.filteredBookmarks.forEach((bookmark, index) => {
             const item = this.createBookmarkItem(bookmark, index);
             this.bookmarksList.appendChild(item);
@@ -335,102 +235,106 @@ class QuickOpenSite {
     createBookmarkItem(bookmark, index) {
         const item = document.createElement('div');
         item.className = `bookmark-item ${index === this.selectedIndex ? 'highlighted' : ''}`;
-        item.__bookmarkData = bookmark; // 将书签数据附加到DOM元素
-
-        const icon = this.createBookmarkIcon(bookmark);
-        const info = this.createBookmarkInfo(bookmark);
-        const actionsContainer = this.createActionsContainer(bookmark);
-
-        item.appendChild(icon);
-        item.appendChild(info);
-        item.appendChild(actionsContainer);
-
+        item.__bookmarkData = bookmark;
+        item.appendChild(this.createBookmarkIcon(bookmark));
+        item.appendChild(this.createBookmarkInfo(bookmark));
+        item.appendChild(this.createActionsContainer(bookmark));
         item.addEventListener('click', () => this.openBookmark(bookmark));
-
         return item;
     }
 
     createBookmarkIcon(bookmark) {
-        const icon = document.createElement('div');
-        icon.className = 'bookmark-icon';
+        const iconElement = document.createElement('div');
+        iconElement.className = 'bookmark-icon';
+        const fallbackText = bookmark.displayTitle.charAt(0).toUpperCase();
+        iconElement.textContent = fallbackText;
+        this.loadBookmarkIcon(iconElement, bookmark, fallbackText);
+        return iconElement;
+    }
 
-        // 尝试使用网站图标，失败则使用首字母
+    async loadBookmarkIcon(iconElement, bookmark, fallbackText) {
+        try {
+            const domain = new URL(bookmark.url).hostname;
+            console.log(`[ICON] 开始加载图标: ${domain}`);
+            
+            const faviconData = await this.getFaviconCached(bookmark.url);
+            console.log(`[ICON] 获取到数据: ${domain}`, faviconData ? '有数据' : '无数据');
+            
+            if (faviconData && iconElement.parentNode) {
+                console.log(`[ICON] 设置base64图片: ${domain}`);
+                this.setBase64Image(iconElement, faviconData, fallbackText);
+            } else if (iconElement.parentNode) {
+                console.log(`[ICON] 设置为失败状态: ${domain}`);
+                iconElement.classList.add('cached-failed');
+            }
+        } catch (error) {
+            console.error('加载书签图标失败:', error);
+            if (iconElement.parentNode) iconElement.classList.add('error');
+        }
+    }
+
+    setBase64Image(iconElement, base64Data, fallbackText) {
         const img = new Image();
-        img.src = bookmark.favicon;
         img.onload = () => {
-            icon.innerHTML = '';
-            icon.appendChild(img);
-            img.style.width = '100%';
-            img.style.height = '100%';
-            img.style.borderRadius = '4px';
+            if (iconElement.parentNode) {
+                iconElement.innerHTML = '';
+                iconElement.appendChild(img);
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.borderRadius = '4px';
+                iconElement.classList.add('loaded');
+            }
         };
         img.onerror = () => {
-            icon.textContent = bookmark.displayTitle.charAt(0).toUpperCase();
+            if (iconElement.parentNode) {
+                iconElement.textContent = fallbackText;
+                iconElement.classList.add('cached-failed');
+            }
         };
+        img.src = base64Data;
+    }
 
-        // 默认显示首字母
-        icon.textContent = bookmark.displayTitle.charAt(0).toUpperCase();
-
-        return icon;
+    async getFaviconCached(url) {
+        try {
+            const urlObj = new URL(url);
+            return await this.faviconCache.get(urlObj.hostname, url);
+        } catch (error) {
+            console.error('获取缓存favicon失败:', error);
+            return null;
+        }
     }
 
     createBookmarkInfo(bookmark) {
         const info = document.createElement('div');
         info.className = 'bookmark-info';
-
         const title = document.createElement('div');
         title.className = 'bookmark-title';
-
-        // 如果有文件夹信息，添加到标题前
-        if (bookmark.folder) {
-            title.textContent = `${bookmark.folder} › ${bookmark.displayTitle}`;
-        } else {
-            title.textContent = bookmark.displayTitle;
-        }
-
+        title.textContent = bookmark.folder ? `${bookmark.folder} › ${bookmark.displayTitle}` : bookmark.displayTitle;
         const url = document.createElement('div');
         url.className = 'bookmark-url';
         url.textContent = this.formatUrl(bookmark.url);
-
         info.appendChild(title);
         info.appendChild(url);
-
         return info;
-    }
-
-    createKeyBadge(key) {
-        const badge = document.createElement('div');
-        badge.className = 'bookmark-key';
-        badge.textContent = key.toUpperCase();
-        return badge;
     }
 
     createActionsContainer(bookmark) {
         const container = document.createElement('div');
         container.className = 'actions-container';
-
-        // --- 1. 默认显示的按钮 ---
         const defaultActions = document.createElement('div');
         defaultActions.className = 'default-actions';
-
         if (bookmark.key) {
-            defaultActions.appendChild(this.createKeyBadge(bookmark.key));
+            const badge = document.createElement('div');
+            badge.className = 'bookmark-key';
+            badge.textContent = bookmark.key.toUpperCase();
+            defaultActions.appendChild(badge);
             defaultActions.appendChild(this.createDeleteKeyButton(bookmark));
         }
         defaultActions.appendChild(this.createEditShortcutButton(bookmark));
         defaultActions.appendChild(this.createDeleteBookmarkButton(bookmark));
-
-        // --- 2. 确认删除时显示的按钮 ---
-        const confirmationControls = this.createConfirmationControls(bookmark);
-
-        // --- 3. 编辑快捷键时显示的表单 ---
-        const editShortcutForm = this.createEditShortcutForm(bookmark);
-
-        // --- 将所有部分都添加到主容器中 ---
         container.appendChild(defaultActions);
-        container.appendChild(confirmationControls);
-        container.appendChild(editShortcutForm);
-
+        container.appendChild(this.createConfirmationControls(bookmark));
+        container.appendChild(this.createEditShortcutForm(bookmark));
         return container;
     }
 
@@ -442,10 +346,7 @@ class QuickOpenSite {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const currentItem = e.currentTarget.closest('.bookmark-item');
-
-            // 关闭所有其他正在操作的项
             this.resetAllItemStates();
-
             currentItem.classList.add('is-editing-shortcut');
             const input = currentItem.querySelector('.edit-shortcut-input');
             input.focus();
@@ -457,7 +358,6 @@ class QuickOpenSite {
     createConfirmationControls(bookmark) {
         const controls = document.createElement('div');
         controls.className = 'confirmation-controls';
-
         const confirmBtn = document.createElement('button');
         confirmBtn.className = 'confirm-btn';
         confirmBtn.innerHTML = '✅';
@@ -466,7 +366,6 @@ class QuickOpenSite {
             e.stopPropagation();
             this.deleteBookmark(bookmark, true);
         });
-
         const cancelBtn = document.createElement('button');
         cancelBtn.className = 'cancel-btn';
         cancelBtn.innerHTML = '❌';
@@ -475,7 +374,6 @@ class QuickOpenSite {
             e.stopPropagation();
             e.currentTarget.closest('.bookmark-item').classList.remove('is-confirming-delete');
         });
-
         controls.appendChild(cancelBtn);
         controls.appendChild(confirmBtn);
         return controls;
@@ -484,23 +382,18 @@ class QuickOpenSite {
     createEditShortcutForm(bookmark) {
         const form = document.createElement('div');
         form.className = 'edit-shortcut-form';
-        form.addEventListener('click', e => e.stopPropagation()); // 阻止整个表单的点击冒泡
-
+        form.addEventListener('click', e => e.stopPropagation());
         const input = document.createElement('input');
         input.type = 'text';
         input.maxLength = 1;
         input.className = 'edit-shortcut-input';
-
-        // 将popover事件绑定委托给initEventListeners中的统一处理器
         this.initPopoverEventsForInput(input);
-
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.stopPropagation();
                 this.updateBookmarkKey(bookmark, input.value);
             }
         });
-
         const saveBtn = document.createElement('button');
         saveBtn.className = 'confirm-btn';
         saveBtn.innerHTML = '✅';
@@ -509,7 +402,6 @@ class QuickOpenSite {
             e.stopPropagation();
             this.updateBookmarkKey(bookmark, input.value);
         });
-
         const cancelBtn = document.createElement('button');
         cancelBtn.className = 'cancel-btn';
         cancelBtn.innerHTML = '❌';
@@ -518,7 +410,6 @@ class QuickOpenSite {
             e.stopPropagation();
             e.currentTarget.closest('.bookmark-item').classList.remove('is-editing-shortcut');
         });
-
         form.appendChild(input);
         form.appendChild(saveBtn);
         form.appendChild(cancelBtn);
@@ -528,7 +419,7 @@ class QuickOpenSite {
     createDeleteKeyButton(bookmark) {
         const btn = document.createElement('button');
         btn.className = 'delete-key-btn';
-        btn.textContent = 'X'; // 使用大写X以示区别
+        btn.textContent = 'X';
         btn.title = '删除快捷键';
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -540,16 +431,12 @@ class QuickOpenSite {
     createDeleteBookmarkButton(bookmark) {
         const btn = document.createElement('button');
         btn.className = 'delete-bookmark-btn';
-        btn.innerHTML = '🗑️'; // 使用垃圾桶图标
+        btn.innerHTML = '🗑️';
         btn.title = '删除书签';
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
-            // 切换到确认状态
             const currentItem = e.currentTarget.closest('.bookmark-item');
-            // 先移除其他所有项的确认状态
-            this.bookmarksList.querySelectorAll('.is-confirming-delete').forEach(item => {
-                item.classList.remove('is-confirming-delete');
-            });
+            this.resetAllItemStates();
             currentItem.classList.add('is-confirming-delete');
         });
         return btn;
@@ -557,9 +444,7 @@ class QuickOpenSite {
 
     async deleteBookmarkKey(bookmark) {
         try {
-            const newTitle = bookmark.displayTitle;
-            await chrome.bookmarks.update(bookmark.id, { title: newTitle });
-            console.log(`✅ 快捷键已从 "${bookmark.title}" 中删除。`);
+            await chrome.bookmarks.update(bookmark.id, { title: bookmark.displayTitle });
             this.loadBookmarks();
         } catch (error) {
             console.error('删除快捷键失败:', error);
@@ -567,11 +452,9 @@ class QuickOpenSite {
     }
 
     async deleteBookmark(bookmark, confirmed = false) {
-        if (!confirmed) return; // 如果没有确认，则不执行任何操作
-
+        if (!confirmed) return;
         try {
             await chrome.bookmarks.remove(bookmark.id);
-            console.log(`✅ 书签 "${bookmark.displayTitle}" 已被删除。`);
             this.loadBookmarks();
         } catch (error) {
             console.error('删除书签失败:', error);
@@ -580,20 +463,11 @@ class QuickOpenSite {
 
     async updateBookmarkKey(bookmark, newKey) {
         const key = newKey.trim().toLowerCase();
-        if (!key || !/^[a-z0-9]$/.test(key)) {
-            console.warn('无效的快捷键输入。');
-            // 可以在这里添加视觉反馈
-            return;
-        }
-
+        if (!key || !/^[a-z0-9]$/.test(key)) return;
         try {
-            // 移除旧的快捷键（如果有的话），然后添加新的
-            const baseTitle = bookmark.displayTitle;
-            const newTitle = `${baseTitle} [${key}]`;
-
+            const newTitle = `${bookmark.displayTitle} [${key}]`;
             await chrome.bookmarks.update(bookmark.id, { title: newTitle });
-            console.log(`✅ 书签 "${baseTitle}" 的快捷键已更新为 "${key}"`);
-            this.loadBookmarks(); // 重新加载以反映变化
+            this.loadBookmarks();
         } catch (error) {
             console.error('更新快捷键失败:', error);
         }
@@ -608,27 +482,18 @@ class QuickOpenSite {
     updateAvailableKeysPopover(currentKeyToIgnore = null) {
         const allKeys = 'abcdefghijklmnopqrstuvwxyz0123456789'.split('');
         const usedKeys = new Set(this.keyMapping.keys());
-
-        // 在编辑模式下，当前快捷键也应被视为可用
-        if (currentKeyToIgnore) {
-            usedKeys.delete(currentKeyToIgnore);
-        }
-
+        if (currentKeyToIgnore) usedKeys.delete(currentKeyToIgnore);
         const availableKeys = allKeys.filter(key => !usedKeys.has(key));
-
-        this.popoverContent.innerHTML = ''; // 清空旧内容
-
+        this.popoverContent.innerHTML = '';
         if (availableKeys.length === 0) {
             this.popoverContent.textContent = '所有快捷键已被占用。';
             return;
         }
-
         availableKeys.forEach(key => {
             const keyElement = document.createElement('div');
             keyElement.className = 'available-key';
             keyElement.textContent = key;
             keyElement.addEventListener('click', () => {
-                // 尝试找到当前聚焦的内联输入框并填入值
                 const focusedItem = this.bookmarksList.querySelector('.is-editing-shortcut');
                 const input = focusedItem ? focusedItem.querySelector('.edit-shortcut-input') : this.addKeyInput;
                 input.value = key;
@@ -640,63 +505,33 @@ class QuickOpenSite {
 
     formatUrl(url) {
         try {
-            const urlObj = new URL(url);
-            return urlObj.hostname;
+            return new URL(url).hostname;
         } catch {
             return url;
         }
     }
 
-    getFavicon(url) {
-        try {
-            const urlObj = new URL(url);
-            return `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=32`;
-        } catch {
-            return '';
-        }
-    }
-
     handleKeyDown(e) {
-        // 新增：如果焦点在任何一个快捷键输入框中，则不执行任何快捷键操作
-        if (document.activeElement.tagName === 'INPUT' &&
-            (document.activeElement.id === 'addKeyInput' || document.activeElement.classList.contains('edit-shortcut-input'))) {
-            return;
-        }
-
-        // 新增：按 ` 聚焦搜索框
+        if (document.activeElement.tagName === 'INPUT' && (document.activeElement.id === 'addKeyInput' || document.activeElement.classList.contains('edit-shortcut-input'))) return;
         if (e.key === '`' && document.activeElement !== this.searchInput) {
             e.preventDefault();
             this.searchInput.focus();
-            return; // 聚焦后，不再执行后续的 switch 逻辑
-        }
-
-        // 如果搜索框聚焦且是普通输入，不处理
-        if (document.activeElement === this.searchInput && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
             return;
         }
+        if (document.activeElement === this.searchInput && e.key.length === 1 && !e.ctrlKey && !e.metaKey) return;
 
         switch (e.key) {
-            case 'ArrowUp':
-                e.preventDefault();
-                this.moveSelection(-1);
-                break;
-            case 'ArrowDown':
-                e.preventDefault();
-                this.moveSelection(1);
-                break;
+            case 'ArrowUp': e.preventDefault(); this.moveSelection(-1); break;
+            case 'ArrowDown': e.preventDefault(); this.moveSelection(1); break;
             case 'Enter':
                 e.preventDefault();
                 if (this.filteredBookmarks[this.selectedIndex]) {
                     this.openBookmark(this.filteredBookmarks[this.selectedIndex]);
                 }
                 break;
-            case 'Escape':
-                window.close();
-                break;
+            case 'Escape': window.close(); break;
             default:
-                // 检查是否是快捷键 - 只有在没有功能控制键按下时才响应
-                if (e.key.length === 1 && /[a-z0-9]/i.test(e.key) && 
-                    !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+                if (e.key.length === 1 && /[a-z0-9]/i.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
                     const bookmarks = this.keyMapping.get(e.key.toLowerCase());
                     if (bookmarks && bookmarks.length > 0) {
                         e.preventDefault();
@@ -707,29 +542,19 @@ class QuickOpenSite {
     }
 
     moveSelection(direction) {
-        this.selectedIndex += direction;
-
-        if (this.selectedIndex < 0) {
-            this.selectedIndex = this.filteredBookmarks.length - 1;
-        } else if (this.selectedIndex >= this.filteredBookmarks.length) {
-            this.selectedIndex = 0;
-        }
-
+        this.selectedIndex = (this.selectedIndex + direction + this.filteredBookmarks.length) % this.filteredBookmarks.length;
         this.updateSelection();
     }
+
+
 
     updateSelection() {
         const items = this.bookmarksList.querySelectorAll('.bookmark-item');
         items.forEach((item, index) => {
             item.classList.toggle('highlighted', index === this.selectedIndex);
         });
-
-        // 滚动到选中项
         if (items[this.selectedIndex]) {
-            items[this.selectedIndex].scrollIntoView({
-                behavior: 'smooth',
-                block: 'nearest'
-            });
+            items[this.selectedIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
     }
 
@@ -741,79 +566,48 @@ class QuickOpenSite {
                 const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
                 await chrome.tabs.update(activeTab.id, { url: bookmark.url });
             }
-            if (closeAfter) {
-                window.close();
-            }
+            if (closeAfter) window.close();
         } catch (error) {
             console.error('打开书签失败:', error);
         }
     }
 
     openBookmarks(bookmarks) {
-        bookmarks.forEach(bookmark => {
-            this.openBookmark(bookmark, false); // 打开书签，但不关闭弹窗
-        });
-        window.close(); // 所有书签打开后，关闭弹窗
+        bookmarks.forEach(bookmark => this.openBookmark(bookmark, false));
+        window.close();
     }
 
     async addCurrentPageAsBookmark() {
         const key = this.addKeyInput.value.trim().toLowerCase();
         if (!key || !/^[a-z0-9]$/.test(key)) {
-            console.warn('无效的快捷键输入。');
-            // 可以在这里给用户一些视觉反馈，比如输入框闪烁
             this.addKeyInput.style.borderColor = 'red';
             setTimeout(() => { this.addKeyInput.style.borderColor = '#ddd'; }, 1000);
             return;
         }
-
         try {
             const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (!activeTab || !activeTab.url || activeTab.url.startsWith('chrome://')) {
-                console.warn('无法收藏当前页面。');
-                // 可以在页面上给用户提示
-                return;
-            }
-
+            if (!activeTab || !activeTab.url || activeTab.url.startsWith('chrome://')) return;
             const siteLauncherFolder = this.findSiteLauncherFolder(await chrome.bookmarks.getTree());
             if (!siteLauncherFolder) {
-                console.error('未找到SiteLauncher文件夹，无法添加书签。');
-                this.showEmptyState(); // 提示用户创建文件夹
+                this.showEmptyState();
                 return;
             }
-
             const title = `${activeTab.title} [${key}]`;
-
-            await chrome.bookmarks.create({
-                parentId: siteLauncherFolder.id,
-                title: title,
-                url: activeTab.url
-            });
-
-            console.log(`✅ 书签 "${title}" 已成功添加。`);
-            // 清空输入框并重新加载书签列表
+            await chrome.bookmarks.create({ parentId: siteLauncherFolder.id, title: title, url: activeTab.url });
             this.addKeyInput.value = '';
-            this.loadBookmarks(); // 重新加载以显示新书签
-
+            this.loadBookmarks();
         } catch (error) {
             console.error('添加书签失败:', error);
         }
     }
 
-    openSettings() {
-        chrome.runtime.openOptionsPage();
-    }
-
-    showLoading(show) {
-        this.loading.style.display = show ? 'flex' : 'none';
-    }
-
+    showLoading(show) { this.loading.style.display = show ? 'flex' : 'none'; }
     showEmptyState() {
         this.loading.style.display = 'none';
         this.bookmarksList.style.display = 'none';
         this.emptyState.style.display = 'block';
         this.noResults.style.display = 'none';
     }
-
     showNoResults() {
         this.loading.style.display = 'none';
         this.bookmarksList.style.display = 'none';
@@ -822,7 +616,7 @@ class QuickOpenSite {
     }
 }
 
-// 初始化应用
-document.addEventListener('DOMContentLoaded', () => {
-    new QuickOpenSite();
+document.addEventListener('DOMContentLoaded', () => new QuickOpenSite());
+chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'reload-bookmarks') window.location.reload();
 });

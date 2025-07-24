@@ -9,6 +9,11 @@
     "storage",
     "contextMenus"
   ],
+  "host_permissions": [
+    "*://www.google.com/*",
+    "*://icons.duckduckgo.com/*",
+    "*://*/*"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Quick Open Site"

@@ -174,6 +174,49 @@ body {
     font-size: 14px;
     margin-right: 12px;
     flex-shrink: 0;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+/* 图标加载状态 */
+.bookmark-icon.loading {
+    background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
+    color: #999;
+}
+
+.bookmark-icon.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    border: 2px solid #ddd;
+    border-top: 2px solid #4facfe;
+    border-radius: 50%;
+    animation: iconSpin 1s linear infinite;
+    opacity: 0.7;
+}
+
+.bookmark-icon.loaded {
+    background: transparent;
+}
+
+.bookmark-icon.error {
+    background: linear-gradient(135deg, #ffcdd2 0%, #f8bbd9 100%);
+    color: #c62828;
+}
+
+.bookmark-icon.cached-failed {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    color: #6c757d;
+    opacity: 0.9;
+}
+
+@keyframes iconSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 .bookmark-info {
