@@ -10,7 +10,7 @@ body {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: #333;
     width: 400px; /* 增加宽度，原来是400px */
-    min-height: 500px;
+    min-height: 550px;
     overflow: hidden;
 }
 
