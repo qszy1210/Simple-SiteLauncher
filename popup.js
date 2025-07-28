@@ -19,6 +19,7 @@ class QuickOpenSite {
 
     initElements() {
         this.searchInput = document.getElementById('searchInput');
+        this.searchIcon = document.querySelector('.search-icon');
         this.clearSearchBtn = document.getElementById('clearSearchBtn');
         this.bookmarksList = document.getElementById('bookmarksList');
         this.loading = document.getElementById('loading');
@@ -38,6 +39,11 @@ class QuickOpenSite {
             this.filterBookmarks(value);
             this.toggleClearButton(value);
             this.handleSearchAutoSelect(value);
+        });
+
+        this.searchIcon.addEventListener('click', () => {
+            this.searchInput.focus();
+            this.filterBookmarks(this.searchInput.value);
         });
 
         this.clearSearchBtn.addEventListener('click', () => this.clearSearch());
