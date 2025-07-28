@@ -88,33 +88,19 @@ class QuickOpenSite {
     }
 
     async loadBookmarks() {
+        this.showLoading(true);
         try {
-            this.showLoading(true);
             const bookmarkTree = await chrome.bookmarks.getTree();
             const siteLauncherFolder = this.findSiteLauncherFolder(bookmarkTree);
-
             if (siteLauncherFolder) {
                 const children = await chrome.bookmarks.getChildren(siteLauncherFolder.id);
                 this.bookmarks = await this.processBookmarkItems(children);
-
-                if (this.bookmarks.length > 0) {
-                    this.parseKeyMappings();
-                    this.bookmarks.sort((a, b) => {
-                        const aHasKey = !!a.key;
-                        const bHasKey = !!b.key;
-                        if (aHasKey && !bHasKey) return -1;
-                        if (!aHasKey && bHasKey) return 1;
-                        return a.displayTitle.localeCompare(b.displayTitle);
-                    });
-                    this.filteredBookmarks = [...this.bookmarks];
-                    this.renderBookmarks();
-                    this.updateAvailableKeysPopover();
-                } else {
-                    this.showEmptyState();
-                }
             } else {
-                this.showEmptyState();
+                this.bookmarks = [];
             }
+            this.parseKeyMappings();
+            // 使用 this.searchInput.value 来过滤书签
+            this.filterBookmarks(this.searchInput.value);
         } catch (error) {
             console.error('加载书签失败:', error);
             this.showEmptyState();
