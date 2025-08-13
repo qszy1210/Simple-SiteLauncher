@@ -514,7 +514,7 @@ class QuickOpenSite {
     createDeleteKeyButton(bookmark) {
         const btn = document.createElement('button');
         btn.className = 'delete-key-btn';
-        btn.textContent = 'X';
+        btn.innerHTML = '⌫';
         btn.title = '删除快捷键';
         btn.addEventListener('click', (e) => {
             e.stopPropagation();

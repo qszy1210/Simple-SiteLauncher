@@ -276,7 +276,7 @@ body {
     color: #c62828;
     border: none;
     border-radius: 6px; /* 改为圆角矩形 */
-    padding: 4px 8px;
+    padding: 3px 8px;
     font-size: 12px;
     font-weight: bold;
     cursor: pointer;
