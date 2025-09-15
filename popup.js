@@ -109,6 +109,8 @@ class QuickOpenSite {
                 this.bookmarks = [];
             }
             this.parseKeyMappings();
+            // 按优先级排序书签
+            this.bookmarks = this.sortBookmarksByPriority(this.bookmarks);
             // 使用 this.searchInput.value 来过滤书签
             this.filterBookmarks(this.searchInput.value);
         } catch (error) {
@@ -164,6 +166,47 @@ class QuickOpenSite {
                 bookmark.displayTitle = bookmark.title;
             }
         });
+    }
+
+    /**
+     * 按优先级对网站进行排序
+     * 1. 特殊配置的置顶内容（pinned: true）
+     * 2. 有快捷键的内容按快捷键顺序升序排列
+     * 3. 没有快捷键的内容按名称排序
+     */
+    sortBookmarksByPriority(bookmarkList) {
+        // 创建副本避免修改原数组
+        const bookmarks = [...bookmarkList];
+        
+        // 分组
+        const pinnedBookmarks = [];
+        const keyboardBookmarks = [];
+        const normalBookmarks = [];
+        
+        bookmarks.forEach(bookmark => {
+            if (bookmark.pinned) {
+                pinnedBookmarks.push(bookmark);
+            } else if (bookmark.key) {
+                keyboardBookmarks.push(bookmark);
+            } else {
+                normalBookmarks.push(bookmark);
+            }
+        });
+        
+        // 对有快捷键的书签按快捷键排序（升序）
+        keyboardBookmarks.sort((a, b) => {
+            const shortcutA = a.key.toLowerCase();
+            const shortcutB = b.key.toLowerCase();
+            return shortcutA.localeCompare(shortcutB);
+        });
+        
+        // 对没有快捷键的书签按名称排序
+        normalBookmarks.sort((a, b) => {
+            return a.displayTitle.localeCompare(b.displayTitle, 'zh-CN', { sensitivity: 'base' });
+        });
+        
+        // 合并所有分组：置顶 -> 快捷键 -> 普通
+        return [...pinnedBookmarks, ...keyboardBookmarks, ...normalBookmarks];
     }
 
     filterBookmarks(query) {
