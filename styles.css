@@ -133,25 +133,25 @@ body {
 .bookmarks-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
     padding-bottom: 60px; /* 为底部popover留出空间 */
 }
 
 .bookmark-item {
     display: flex;
     align-items: center;
-    padding: 12px 16px;
+    padding: 6px 10px;
     background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
     cursor: pointer;
-    transition: all 0.3s ease;
-    border-left: 4px solid transparent;
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
 }
 
 .bookmark-item:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
     border-left-color: #4facfe;
 }
 
@@ -162,20 +162,20 @@ body {
 }
 
 .bookmark-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
     font-weight: bold;
-    font-size: 14px;
-    margin-right: 12px;
+    font-size: 11px;
+    margin-right: 8px;
     flex-shrink: 0;
     position: relative;
-    transition: all 0.3s ease;
+    transition: opacity 0.15s ease;
 }
 
 /* 图标加载状态 */
@@ -203,6 +203,25 @@ body {
     background: transparent;
 }
 
+/* 图标回退文字 */
+.bookmark-icon .icon-fallback {
+    transition: opacity 0.15s ease;
+}
+
+.bookmark-icon.loaded .icon-fallback {
+    opacity: 0;
+}
+
+/* 图标淡入效果 */
+.bookmark-icon .icon-img {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.bookmark-icon.loaded .icon-img {
+    opacity: 1;
+}
+
 .bookmark-icon.error {
     background: linear-gradient(135deg, #ffcdd2 0%, #f8bbd9 100%);
     color: #c62828;
@@ -226,15 +245,15 @@ body {
 
 .bookmark-title {
     font-weight: 600;
-    font-size: 14px;
-    margin-bottom: 4px;
+    font-size: 13px;
+    margin-bottom: 2px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .bookmark-url {
-    font-size: 12px;
+    font-size: 11px;
     opacity: 0.7;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -244,13 +263,13 @@ body {
 .bookmark-key {
     background: rgba(0, 0, 0, 0.1);
     color: #333;
-    padding: 4px 8px;
-    border-radius: 6px;
-    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
     font-weight: bold;
-    min-width: 24px;
+    min-width: 20px;
     text-align: center;
-    margin-left: 8px;
+    margin-left: 6px;
 }
 
 .bookmark-item.highlighted .bookmark-key {
@@ -261,7 +280,7 @@ body {
 .actions-container {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
     margin-left: auto; /* 将容器推到最右侧 */
 }
 
@@ -588,18 +607,60 @@ body {
     }
 } */
 
-/* 动画效果 */
+/* 动画效果 - 轻微淡入，减少闪动 */
 .bookmark-item {
-    animation: slideIn 0.3s ease-out;
+    animation: fadeIn 0.12s ease-out;
 }
 
-@keyframes slideIn {
+@keyframes fadeIn {
     from {
-        opacity: 0;
-        transform: translateY(20px);
+        opacity: 0.7;
     }
     to {
         opacity: 1;
-        transform: translateY(0);
     }
+}
+
+/* 自定义 Tooltip */
+.custom-tooltip {
+    position: fixed;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.4;
+    max-width: 300px;
+    word-wrap: break-word;
+    z-index: 10000;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(8px);
+}
+
+.custom-tooltip.show {
+    opacity: 1;
+}
+
+/* Tooltip 箭头 - 默认在上方（tooltip 在下方时） */
+.custom-tooltip::before {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 0;
+    border: 6px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.9);
+    bottom: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* Tooltip 在下方时，箭头在上方 */
+.custom-tooltip.tooltip-below::before {
+    border-top-color: transparent;
+    border-bottom-color: rgba(0, 0, 0, 0.9);
+    bottom: auto;
+    top: -12px;
 }

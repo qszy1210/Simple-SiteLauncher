@@ -32,9 +32,11 @@ class QuickOpenSite {
         this.addBookmarkBtn = document.getElementById('addBookmarkBtn');
         this.popover = document.getElementById('availableKeysPopover');
         this.popoverContent = document.getElementById('popoverContent');
+        this.tooltip = document.getElementById('customTooltip');
         this.hidePopoverTimeout = null;
         this.searchTimeout = null;
         this.filterDebounceTimeout = null;
+        this.tooltipTimeout = null;
     }
 
     initEventListeners() {
@@ -76,6 +78,10 @@ class QuickOpenSite {
 
         setupPopoverEvents(this.addKeyInput);
         this.popover.addEventListener('mousedown', (e) => e.preventDefault());
+
+        // 窗口关闭或滚动时隐藏 tooltip
+        window.addEventListener('beforeunload', () => this.hideTooltip());
+        this.bookmarksList.addEventListener('scroll', () => this.hideTooltip());
     }
 
     initPopoverEventsForInput(input) {
@@ -259,23 +265,55 @@ class QuickOpenSite {
         return [...pinnedBookmarks, ...keyboardBookmarks, ...normalBookmarks];
     }
 
+    /**
+     * 有序非连续子序列匹配
+     * 例如：query "ac" 可以匹配 "abc"、"a1c2" 等
+     * 
+     * @param {string} text - 要搜索的文本
+     * @param {string} query - 搜索关键词（已小写化）
+     * @returns {boolean} - 是否匹配
+     */
+    matchSubsequence(text, query) {
+        if (!query) return true;
+        if (!text) return false;
+        
+        const lowerText = text.toLowerCase();
+        let queryIndex = 0;
+        
+        for (let i = 0; i < lowerText.length && queryIndex < query.length; i++) {
+            if (lowerText[i] === query[queryIndex]) {
+                queryIndex++;
+            }
+        }
+        
+        return queryIndex === query.length;
+    }
+
+    /**
+     * 检查书签是否匹配搜索条件
+     * 
+     * @param {Object} bookmark - 书签对象
+     * @param {string} lowerQuery - 小写化的搜索关键词
+     * @returns {boolean} - 是否匹配
+     */
+    matchBookmark(bookmark, lowerQuery) {
+        return this.matchSubsequence(bookmark.displayTitle, lowerQuery) ||
+               this.matchSubsequence(bookmark.url, lowerQuery) ||
+               (bookmark.key && bookmark.key.includes(lowerQuery)) ||
+               (bookmark.folder && this.matchSubsequence(bookmark.folder, lowerQuery));
+    }
+
     filterBookmarks(query) {
         const lowerQuery = query.toLowerCase();
         if (lowerQuery.length === 1 && /[a-z0-9]/.test(lowerQuery)) {
             const exactMatches = this.keyMapping.get(lowerQuery) || [];
             const otherMatches = this.bookmarks.filter(bookmark =>
-                !exactMatches.includes(bookmark) &&
-                (bookmark.displayTitle.toLowerCase().includes(lowerQuery) ||
-                 bookmark.url.toLowerCase().includes(lowerQuery) ||
-                 (bookmark.folder && bookmark.folder.toLowerCase().includes(lowerQuery)))
+                !exactMatches.includes(bookmark) && this.matchBookmark(bookmark, lowerQuery)
             );
             this.filteredBookmarks = [...exactMatches, ...otherMatches];
         } else {
             this.filteredBookmarks = this.bookmarks.filter(bookmark =>
-                bookmark.displayTitle.toLowerCase().includes(lowerQuery) ||
-                bookmark.url.toLowerCase().includes(lowerQuery) ||
-                (bookmark.key && bookmark.key.includes(lowerQuery)) ||
-                (bookmark.folder && bookmark.folder.toLowerCase().includes(lowerQuery))
+                this.matchBookmark(bookmark, lowerQuery)
             );
         }
         if (lowerQuery.length === 0) {
@@ -308,7 +346,7 @@ class QuickOpenSite {
                     this.searchInput.focus();
                     this.searchInput.select();
                 }
-            }, 1000);
+            }, 2000);
         }
     }
 
@@ -343,6 +381,9 @@ class QuickOpenSite {
     }
 
     renderBookmarks() {
+        // 隐藏 tooltip，避免在重新渲染时仍然显示
+        this.hideTooltip();
+        
         this.bookmarksList.innerHTML = '';
         if (this.filteredBookmarks.length === 0) {
             this.searchInput.value ? this.showNoResults() : this.showEmptyState();
@@ -369,8 +410,23 @@ class QuickOpenSite {
     }
 
     /**
+     * 获取 favicon URL
+     * 使用 Chrome 原生 _favicon API
+     * 
+     * @param {string} pageUrl - 网页 URL
+     * @returns {string} - favicon URL
+     */
+    getFaviconUrl(pageUrl) {
+        const url = new URL(chrome.runtime.getURL('/_favicon/'));
+        url.searchParams.set('pageUrl', pageUrl);
+        url.searchParams.set('size', '24');
+        return url.toString();
+    }
+
+    /**
      * 创建书签图标元素
      * 使用 Chrome 原生 _favicon API 获取网站图标
+     * 优化：预先添加图片元素，使用 CSS 淡入减少闪动
      * 
      * @param {Object} bookmark - 书签对象
      * @returns {HTMLElement} - 图标DOM元素
@@ -381,43 +437,59 @@ class QuickOpenSite {
 
         // 生成首字母作为回退显示
         const fallbackText = bookmark.displayTitle.charAt(0).toUpperCase();
-        iconElement.textContent = fallbackText;
+        
+        // 创建文字回退元素
+        const textSpan = document.createElement('span');
+        textSpan.className = 'icon-fallback';
+        textSpan.textContent = fallbackText;
+        iconElement.appendChild(textSpan);
 
         // 使用 Chrome 原生 _favicon API
         const img = new Image();
-        const faviconUrl = chrome.runtime.getURL(
-            `_favicon/?pageUrl=${encodeURIComponent(bookmark.url)}&size=32`
-        );
+        img.className = 'icon-img';
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.borderRadius = '4px';
+        img.style.position = 'absolute';
+        img.style.top = '0';
+        img.style.left = '0';
+        
+        const faviconUrl = this.getFaviconUrl(bookmark.url);
 
         img.onload = () => {
             if (iconElement.parentNode) {
-                iconElement.innerHTML = '';
-                iconElement.appendChild(img);
-                img.style.width = '100%';
-                img.style.height = '100%';
-                img.style.borderRadius = '4px';
                 iconElement.classList.add('loaded');
             }
         };
 
         img.onerror = () => {
-            // 加载失败时保持首字母显示
-            iconElement.textContent = fallbackText;
+            // 加载失败时移除图片，保持首字母显示
+            if (img.parentNode) {
+                img.remove();
+            }
         };
 
         img.src = faviconUrl;
+        iconElement.appendChild(img);
         return iconElement;
     }
 
     createBookmarkInfo(bookmark) {
         const info = document.createElement('div');
         info.className = 'bookmark-info';
+        
         const title = document.createElement('div');
         title.className = 'bookmark-title';
-        title.textContent = bookmark.folder ? `${bookmark.folder} › ${bookmark.displayTitle}` : bookmark.displayTitle;
+        const titleText = bookmark.folder ? `${bookmark.folder} › ${bookmark.displayTitle}` : bookmark.displayTitle;
+        title.textContent = titleText;
+        this.setupTooltip(title, titleText);
+        
         const url = document.createElement('div');
         url.className = 'bookmark-url';
-        url.textContent = this.formatUrl(bookmark.url);
+        const urlText = this.formatUrl(bookmark.url);
+        url.textContent = urlText;
+        this.setupTooltip(url, bookmark.url); // 显示完整 URL，而不是格式化后的
+        
         info.appendChild(title);
         info.appendChild(url);
         return info;
@@ -614,6 +686,113 @@ class QuickOpenSite {
         } catch {
             return url;
         }
+    }
+
+    /**
+     * 检测文本是否被截断
+     * @param {HTMLElement} element - 要检测的元素
+     * @returns {boolean} - 是否被截断
+     */
+    isTextTruncated(element) {
+        return element.scrollWidth > element.clientWidth;
+    }
+
+    /**
+     * 设置 tooltip 事件监听器
+     * @param {HTMLElement} element - 要添加 tooltip 的元素
+     * @param {string} fullText - 完整文本内容
+     */
+    setupTooltip(element, fullText) {
+        let showTimeout = null;
+        let currentElement = null;
+        
+        element.addEventListener('mouseenter', (e) => {
+            currentElement = element;
+            // 快速显示，延迟很短（50ms）
+            showTimeout = setTimeout(() => {
+                if (currentElement === element && this.isTextTruncated(element)) {
+                    this.showTooltip(element, fullText);
+                }
+            }, 50);
+        });
+
+        element.addEventListener('mouseleave', () => {
+            currentElement = null;
+            if (showTimeout) {
+                clearTimeout(showTimeout);
+                showTimeout = null;
+            }
+            this.hideTooltip();
+        });
+    }
+
+    /**
+     * 显示 tooltip
+     * @param {HTMLElement} element - 触发 tooltip 的元素
+     * @param {string} text - 要显示的文本
+     */
+    showTooltip(element, text) {
+        this.tooltip.textContent = text;
+        this.tooltip.style.display = 'block';
+        this.positionTooltip(element);
+        
+        // 使用 requestAnimationFrame 确保 DOM 更新后再显示
+        requestAnimationFrame(() => {
+            this.tooltip.classList.add('show');
+        });
+    }
+
+    /**
+     * 隐藏 tooltip
+     */
+    hideTooltip() {
+        this.tooltip.classList.remove('show');
+        // 等待过渡动画完成后再隐藏
+        setTimeout(() => {
+            if (!this.tooltip.classList.contains('show')) {
+                this.tooltip.style.display = 'none';
+            }
+        }, 100);
+    }
+
+    /**
+     * 定位 tooltip
+     * @param {HTMLElement} element - 触发 tooltip 的元素
+     */
+    positionTooltip(element) {
+        const tooltip = this.tooltip;
+        const padding = 10;
+        const arrowHeight = 12;
+        
+        // 获取元素位置
+        const rect = element.getBoundingClientRect();
+        const tooltipWidth = tooltip.offsetWidth || 300;
+        const tooltipHeight = tooltip.offsetHeight || 50;
+        
+        // 默认显示在元素上方
+        let left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+        let top = rect.top - tooltipHeight - padding - arrowHeight;
+        
+        // 防止超出右边界
+        if (left + tooltipWidth > window.innerWidth - padding) {
+            left = window.innerWidth - tooltipWidth - padding;
+        }
+        
+        // 防止超出左边界
+        if (left < padding) {
+            left = padding;
+        }
+        
+        // 如果上方空间不足，显示在下方
+        if (top < padding) {
+            top = rect.bottom + padding + arrowHeight;
+            tooltip.classList.add('tooltip-below');
+        } else {
+            tooltip.classList.remove('tooltip-below');
+        }
+        
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${top}px`;
     }
 
     handleKeyDown(e) {
