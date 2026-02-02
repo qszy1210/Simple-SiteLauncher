@@ -200,6 +200,26 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
+        /* 文本输入框样式 */
+        .text-input {
+            padding: 10px 14px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 14px;
+            min-width: 180px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .text-input:focus {
+            border-color: #4facfe;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.2);
+        }
+
+        .text-input::placeholder {
+            color: #adb5bd;
+        }
+
         /* 快捷键信息 */
         .shortcut-info {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -377,6 +397,18 @@
                             </label>
                         </div>
                     </div>
+                    <div class="option-item">
+                        <div class="option-info">
+                            <div class="option-title">书签文件夹范围</div>
+                            <div class="option-description">
+                                配置一级书签文件夹名称，仅搜索该文件夹下的书签。<br>
+                                留空表示搜索全部书签。
+                            </div>
+                        </div>
+                        <div class="option-control">
+                            <input type="text" id="bookmarkFolder" class="text-input" placeholder="如: SiteLauncher">
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -388,19 +420,16 @@
                         <div class="option-info">
                             <div class="option-title">书签文件夹结构</div>
                             <div class="option-description">
-                                扩展将读取SiteLauncher文件夹下的所有书签，包括子文件夹中的书签。<span style="color: red;">如果不存在的话, 需要手动进行创建</span>
-                                子文件夹可以用来组织不同类别的书签，使管理更加方便。
+                                扩展将读取配置的一级文件夹下的所有书签，包括子文件夹中的书签。<br>
+                                如果未配置文件夹，则搜索全部书签。子文件夹可用于组织不同类别的书签。
                             </div>
                             <div class="folder-structure">
-                                <div class="folder">📁 SiteLauncher</div>
+                                <div class="folder">📁 [配置的文件夹名]</div>
                                 <div class="indent bookmark">🔖 Google <span class="key">[g]</span></div>
                                 <div class="indent bookmark">🔖 GitHub <span class="key">[h]</span></div>
                                 <div class="indent folder">📁 工作</div>
                                 <div class="indent indent bookmark">🔖 邮箱 <span class="key">[m]</span></div>
                                 <div class="indent indent bookmark">🔖 日历 <span class="key">[c]</span></div>
-                                <div class="indent folder">📁 娱乐</div>
-                                <div class="indent indent bookmark">🔖 YouTube <span class="key">[y]</span></div>
-                                <div class="indent indent bookmark">🔖 Netflix <span class="key">[n]</span></div>
                             </div>
                         </div>
                         <div class="option-control">
@@ -425,20 +454,6 @@
             <div class="section">
                 <h2 class="section-title">高级设置</h2>
                 <div class="option-group">
-                    <div class="option-item">
-                        <div class="option-info">
-                            <div class="option-title">Favicon缓存管理</div>
-                            <div class="option-description">
-                                清理网站图标缓存，释放存储空间。缓存用于加速图标加载。
-                                <div id="cacheStats" style="margin-top: 8px; font-size: 12px; color: #666;"></div>
-                            </div>
-                        </div>
-                        <div class="option-control">
-                            <button class="btn btn-secondary" id="clearCacheBtn">
-                                清理缓存
-                            </button>
-                        </div>
-                    </div>
                     <div class="option-item">
                         <div class="option-info">
                             <div class="option-title">重置所有设置</div>

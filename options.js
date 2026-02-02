@@ -2,7 +2,8 @@
 class OptionsManager {
     constructor() {
         this.defaultSettings = {
-            openInNewTab: true
+            openInNewTab: true,
+            bookmarkFolder: ''  // 空字符串表示全部书签
         };
 
         this.init();
@@ -26,6 +27,7 @@ class OptionsManager {
     applySettings(settings) {
         // 应用设置到UI
         document.getElementById('openInNewTab').checked = settings.openInNewTab;
+        document.getElementById('bookmarkFolder').value = settings.bookmarkFolder || '';
     }
 
     bindEvents() {
@@ -33,6 +35,22 @@ class OptionsManager {
         const openInNewTabSwitch = document.getElementById('openInNewTab');
         openInNewTabSwitch.addEventListener('change', (e) => {
             this.saveSetting('openInNewTab', e.target.checked);
+        });
+
+        // 书签文件夹配置
+        const bookmarkFolderInput = document.getElementById('bookmarkFolder');
+        let folderInputTimeout = null;
+        bookmarkFolderInput.addEventListener('input', (e) => {
+            // 防抖处理，避免频繁保存
+            clearTimeout(folderInputTimeout);
+            folderInputTimeout = setTimeout(() => {
+                this.saveSetting('bookmarkFolder', e.target.value.trim());
+            }, 500);
+        });
+        bookmarkFolderInput.addEventListener('blur', (e) => {
+            // 失去焦点时立即保存
+            clearTimeout(folderInputTimeout);
+            this.saveSetting('bookmarkFolder', e.target.value.trim());
         });
 
         // 管理书签按钮
@@ -61,7 +79,8 @@ class OptionsManager {
 
     async saveAllSettings() {
         const settings = {
-            openInNewTab: document.getElementById('openInNewTab').checked
+            openInNewTab: document.getElementById('openInNewTab').checked,
+            bookmarkFolder: document.getElementById('bookmarkFolder').value.trim()
         };
 
         try {

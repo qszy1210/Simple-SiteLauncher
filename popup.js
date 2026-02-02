@@ -5,20 +5,19 @@ class QuickOpenSite {
         this.keyMapping = new Map();
         this.filteredBookmarks = [];
         this.selectedIndex = 0;
-        this.settings = { openInNewTab: true };
+        this.settings = { openInNewTab: true, bookmarkFolder: '' };
         this.currentTabUrl = null;
         this._currentTabUrlFetched = false;
 
-        this.faviconCache = new FaviconCache();
-
         this.initElements();
         this.initEventListeners();
-        this.loadSettings();
+        this.init();
+    }
+
+    async init() {
+        await this.loadSettings();
         this.loadBookmarks();
-            this.fetchCurrentTabUrl();
-
-
-        // this.faviconCache.clear();
+        this.fetchCurrentTabUrl();
     }
 
     initElements() {
@@ -35,14 +34,20 @@ class QuickOpenSite {
         this.popoverContent = document.getElementById('popoverContent');
         this.hidePopoverTimeout = null;
         this.searchTimeout = null;
+        this.filterDebounceTimeout = null;
     }
 
     initEventListeners() {
         this.searchInput.addEventListener('input', (e) => {
             const value = e.target.value;
-            this.filterBookmarks(value);
             this.toggleClearButton(value);
-            this.handleSearchAutoSelect(value);
+            
+            // 防抖处理，避免频繁过滤
+            clearTimeout(this.filterDebounceTimeout);
+            this.filterDebounceTimeout = setTimeout(() => {
+                this.filterBookmarks(value);
+                this.handleSearchAutoSelect(value);
+            }, 250);
         });
 
         this.searchIcon.addEventListener('click', () => {
@@ -90,8 +95,9 @@ class QuickOpenSite {
 
     async loadSettings() {
         try {
-            const result = await chrome.storage.sync.get(['openInNewTab']);
+            const result = await chrome.storage.sync.get(['openInNewTab', 'bookmarkFolder']);
             this.settings.openInNewTab = result.openInNewTab !== undefined ? result.openInNewTab : true;
+            this.settings.bookmarkFolder = result.bookmarkFolder || '';
         } catch (error) {
             console.error('加载设置失败:', error);
         }
@@ -101,13 +107,22 @@ class QuickOpenSite {
         this.showLoading(true);
         try {
             const bookmarkTree = await chrome.bookmarks.getTree();
-            const siteLauncherFolder = this.findSiteLauncherFolder(bookmarkTree);
-            if (siteLauncherFolder) {
-                const children = await chrome.bookmarks.getChildren(siteLauncherFolder.id);
-                this.bookmarks = await this.processBookmarkItems(children);
+            const folderName = this.settings.bookmarkFolder;
+            
+            if (folderName) {
+                // 配置了特定文件夹，只查找该一级文件夹
+                const targetFolder = this.findBookmarkFolder(bookmarkTree, folderName);
+                if (targetFolder) {
+                    const children = await chrome.bookmarks.getChildren(targetFolder.id);
+                    this.bookmarks = await this.processBookmarkItems(children);
+                } else {
+                    this.bookmarks = [];
+                }
             } else {
-                this.bookmarks = [];
+                // 未配置文件夹，加载全部书签
+                this.bookmarks = await this.getAllBookmarks(bookmarkTree);
             }
+            
             this.parseKeyMappings();
             // 按优先级排序书签
             this.bookmarks = this.sortBookmarksByPriority(this.bookmarks);
@@ -121,15 +136,50 @@ class QuickOpenSite {
         }
     }
 
-    findSiteLauncherFolder(nodes) {
+    /**
+     * 查找指定名称的一级书签文件夹
+     * @param {Array} nodes - 书签树节点
+     * @param {string} folderName - 要查找的文件夹名称
+     * @returns {Object|null} - 找到的文件夹节点或null
+     */
+    findBookmarkFolder(nodes, folderName) {
         for (const node of nodes) {
-            if (node.title === 'SiteLauncher' && node.children) return node;
+            if (node.title === folderName && node.children) return node;
             if (node.children) {
-                const found = this.findSiteLauncherFolder(node.children);
+                const found = this.findBookmarkFolder(node.children, folderName);
                 if (found) return found;
             }
         }
         return null;
+    }
+
+    /**
+     * 获取全部书签（当未配置特定文件夹时）
+     * @param {Array} nodes - 书签树节点
+     * @returns {Promise<Array>} - 所有书签的数组
+     */
+    async getAllBookmarks(nodes) {
+        const bookmarks = [];
+        
+        const traverse = async (nodeList, parentFolder = null) => {
+            for (const node of nodeList) {
+                if (node.url) {
+                    // 是书签
+                    bookmarks.push({
+                        id: node.id,
+                        title: node.title,
+                        url: node.url,
+                        folder: parentFolder
+                    });
+                } else if (node.children) {
+                    // 是文件夹，递归遍历
+                    await traverse(node.children, node.title || parentFolder);
+                }
+            }
+        };
+        
+        await traverse(nodes);
+        return bookmarks;
     }
 
     async processBookmarkItems(items) {
@@ -247,6 +297,7 @@ class QuickOpenSite {
         this.toggleClearButton('');
         this.searchInput.focus();
         if (this.searchTimeout) clearTimeout(this.searchTimeout);
+        if (this.filterDebounceTimeout) clearTimeout(this.filterDebounceTimeout);
     }
 
     handleSearchAutoSelect(value) {
@@ -319,17 +370,12 @@ class QuickOpenSite {
 
     /**
      * 创建书签图标元素
-     *
-     * 实现渐进式加载策略：
-     * 1. 立即显示首字母作为占位符
-     * 2. 异步加载真实的favicon
-     * 3. 成功时替换为图标，失败时保持首字母
-     *
+     * 使用 Chrome 原生 _favicon API 获取网站图标
+     * 
      * @param {Object} bookmark - 书签对象
      * @returns {HTMLElement} - 图标DOM元素
      */
     createBookmarkIcon(bookmark) {
-        // 创建图标容器
         const iconElement = document.createElement('div');
         iconElement.className = 'bookmark-icon';
 
@@ -337,109 +383,30 @@ class QuickOpenSite {
         const fallbackText = bookmark.displayTitle.charAt(0).toUpperCase();
         iconElement.textContent = fallbackText;
 
-        // 异步加载真实的favicon
-        this.loadBookmarkIcon(iconElement, bookmark, fallbackText);
-
-        return iconElement;
-    }
-
-    /**
-     * 异步加载书签图标
-     *
-     * 加载流程：
-     * 1. 从缓存系统获取favicon数据
-     * 2. 如果有数据：设置base64图片
-     * 3. 如果无数据：标记为失败状态（保持首字母显示）
-     * 4. 错误处理：添加错误样式
-     *
-     * @param {HTMLElement} iconElement - 图标容器元素
-     * @param {Object} bookmark - 书签对象
-     * @param {string} fallbackText - 回退显示的首字母
-     */
-    async loadBookmarkIcon(iconElement, bookmark, fallbackText) {
-        try {
-            const domain = new URL(bookmark.url).hostname;
-            console.log(`[ICON] 开始加载图标: ${domain}`);
-
-            // 从缓存系统获取favicon数据（可能是base64或null）
-            const faviconData = await this.getFaviconCached(bookmark.url);
-            console.log(`[ICON] 获取到数据: ${domain}`, faviconData ? '有数据' : '无数据');
-
-            if (faviconData && iconElement.parentNode) {
-                // 有数据：设置base64图片
-                console.log(`[ICON] 设置base64图片: ${domain}`);
-                this.setBase64Image(iconElement, faviconData, fallbackText);
-            } else if (iconElement.parentNode) {
-                // 无数据：标记为失败状态，保持首字母显示
-                console.log(`[ICON] 设置为失败状态: ${domain}`);
-                iconElement.classList.add('cached-failed');
-            }
-        } catch (error) {
-            console.error('加载书签图标失败:', error);
-            // 错误处理：添加错误样式
-            if (iconElement.parentNode) iconElement.classList.add('error');
-        }
-    }
-
-    /**
-     * 设置base64格式的图片
-     *
-     * 这是真正消除闪烁的关键方法：
-     * - 使用base64数据，无需网络请求
-     * - 立即显示，无加载延迟
-     * - 错误时优雅降级到首字母
-     *
-     * @param {HTMLElement} iconElement - 图标容器元素
-     * @param {string} base64Data - base64格式的图片数据
-     * @param {string} fallbackText - 失败时显示的首字母
-     */
-    setBase64Image(iconElement, base64Data, fallbackText) {
+        // 使用 Chrome 原生 _favicon API
         const img = new Image();
+        const faviconUrl = chrome.runtime.getURL(
+            `_favicon/?pageUrl=${encodeURIComponent(bookmark.url)}&size=32`
+        );
 
-        // 图片加载成功 - 替换首字母为真实图标
         img.onload = () => {
             if (iconElement.parentNode) {
-                iconElement.innerHTML = ''; // 清除首字母
+                iconElement.innerHTML = '';
                 iconElement.appendChild(img);
                 img.style.width = '100%';
                 img.style.height = '100%';
                 img.style.borderRadius = '4px';
-                iconElement.classList.add('loaded'); // 添加成功状态样式
+                iconElement.classList.add('loaded');
             }
         };
 
-        // 图片加载失败 - 保持首字母显示
         img.onerror = () => {
-            if (iconElement.parentNode) {
-                iconElement.textContent = fallbackText;
-                iconElement.classList.add('cached-failed'); // 添加失败状态样式
-            }
+            // 加载失败时保持首字母显示
+            iconElement.textContent = fallbackText;
         };
 
-        // 设置base64数据源 - 这里不会触发网络请求
-        img.src = base64Data;
-    }
-
-    /**
-     * 从缓存系统获取favicon
-     *
-     * 这是popup与缓存系统的接口方法：
-     * - 提取域名作为缓存键
-     * - 调用缓存系统的get方法
-     * - 处理错误并返回null
-     *
-     * @param {string} url - 完整的网站URL
-     * @returns {Promise<string|null>} - base64格式的favicon数据或null
-     */
-    async getFaviconCached(url) {
-        try {
-            const urlObj = new URL(url);
-            // 使用域名作为缓存键，传递完整URL用于生成favicon URL
-            return await this.faviconCache.get(urlObj.hostname, url);
-        } catch (error) {
-            console.error('获取缓存favicon失败:', error);
-            return null;
-        }
+        img.src = faviconUrl;
+        return iconElement;
     }
 
     createBookmarkInfo(bookmark) {
@@ -731,13 +698,27 @@ class QuickOpenSite {
         try {
             const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (!activeTab || !activeTab.url || activeTab.url.startsWith('chrome://')) return;
-            const siteLauncherFolder = this.findSiteLauncherFolder(await chrome.bookmarks.getTree());
-            if (!siteLauncherFolder) {
-                this.showEmptyState();
-                return;
+            
+            const folderName = this.settings.bookmarkFolder;
+            let targetFolderId;
+            
+            if (folderName) {
+                // 配置了特定文件夹，添加到该文件夹
+                const targetFolder = this.findBookmarkFolder(await chrome.bookmarks.getTree(), folderName);
+                if (!targetFolder) {
+                    console.error('未找到配置的书签文件夹:', folderName);
+                    this.showEmptyState();
+                    return;
+                }
+                targetFolderId = targetFolder.id;
+            } else {
+                // 未配置文件夹，添加到书签栏（第一个根节点的第一个子节点）
+                const bookmarkTree = await chrome.bookmarks.getTree();
+                targetFolderId = bookmarkTree[0].children[0].id; // 通常是"书签栏"
             }
+            
             const title = `${activeTab.title} [${key}]`;
-            await chrome.bookmarks.create({ parentId: siteLauncherFolder.id, title: title, url: activeTab.url });
+            await chrome.bookmarks.create({ parentId: targetFolderId, title: title, url: activeTab.url });
             this.addKeyInput.value = '';
             this.loadBookmarks();
         } catch (error) {
