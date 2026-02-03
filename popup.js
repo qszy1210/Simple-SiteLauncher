@@ -18,6 +18,9 @@ class QuickOpenSite {
         await this.loadSettings();
         this.loadBookmarks();
         this.fetchCurrentTabUrl();
+        this.autoFocusTimeout = setTimeout(() => {
+            this.searchInput.focus();
+        }, 1000);
     }
 
     initElements() {
@@ -37,13 +40,14 @@ class QuickOpenSite {
         this.searchTimeout = null;
         this.filterDebounceTimeout = null;
         this.tooltipTimeout = null;
+        this.autoFocusTimeout = null;
     }
 
     initEventListeners() {
         this.searchInput.addEventListener('input', (e) => {
             const value = e.target.value;
             this.toggleClearButton(value);
-            
+
             // 防抖处理，避免频繁过滤
             clearTimeout(this.filterDebounceTimeout);
             this.filterDebounceTimeout = setTimeout(() => {
@@ -114,7 +118,7 @@ class QuickOpenSite {
         try {
             const bookmarkTree = await chrome.bookmarks.getTree();
             const folderName = this.settings.bookmarkFolder;
-            
+
             if (folderName) {
                 // 配置了特定文件夹，只查找该一级文件夹
                 const targetFolder = this.findBookmarkFolder(bookmarkTree, folderName);
@@ -128,7 +132,7 @@ class QuickOpenSite {
                 // 未配置文件夹，加载全部书签
                 this.bookmarks = await this.getAllBookmarks(bookmarkTree);
             }
-            
+
             this.parseKeyMappings();
             // 按优先级排序书签
             this.bookmarks = this.sortBookmarksByPriority(this.bookmarks);
@@ -166,7 +170,7 @@ class QuickOpenSite {
      */
     async getAllBookmarks(nodes) {
         const bookmarks = [];
-        
+
         const traverse = async (nodeList, parentFolder = null) => {
             for (const node of nodeList) {
                 if (node.url) {
@@ -183,7 +187,7 @@ class QuickOpenSite {
                 }
             }
         };
-        
+
         await traverse(nodes);
         return bookmarks;
     }
@@ -233,12 +237,12 @@ class QuickOpenSite {
     sortBookmarksByPriority(bookmarkList) {
         // 创建副本避免修改原数组
         const bookmarks = [...bookmarkList];
-        
+
         // 分组
         const pinnedBookmarks = [];
         const keyboardBookmarks = [];
         const normalBookmarks = [];
-        
+
         bookmarks.forEach(bookmark => {
             if (bookmark.pinned) {
                 pinnedBookmarks.push(bookmark);
@@ -248,19 +252,19 @@ class QuickOpenSite {
                 normalBookmarks.push(bookmark);
             }
         });
-        
+
         // 对有快捷键的书签按快捷键排序（升序）
         keyboardBookmarks.sort((a, b) => {
             const shortcutA = a.key.toLowerCase();
             const shortcutB = b.key.toLowerCase();
             return shortcutA.localeCompare(shortcutB);
         });
-        
+
         // 对没有快捷键的书签按名称排序
         normalBookmarks.sort((a, b) => {
             return a.displayTitle.localeCompare(b.displayTitle, 'zh-CN', { sensitivity: 'base' });
         });
-        
+
         // 合并所有分组：置顶 -> 快捷键 -> 普通
         return [...pinnedBookmarks, ...keyboardBookmarks, ...normalBookmarks];
     }
@@ -268,7 +272,7 @@ class QuickOpenSite {
     /**
      * 有序非连续子序列匹配
      * 例如：query "ac" 可以匹配 "abc"、"a1c2" 等
-     * 
+     *
      * @param {string} text - 要搜索的文本
      * @param {string} query - 搜索关键词（已小写化）
      * @returns {boolean} - 是否匹配
@@ -276,22 +280,22 @@ class QuickOpenSite {
     matchSubsequence(text, query) {
         if (!query) return true;
         if (!text) return false;
-        
+
         const lowerText = text.toLowerCase();
         let queryIndex = 0;
-        
+
         for (let i = 0; i < lowerText.length && queryIndex < query.length; i++) {
             if (lowerText[i] === query[queryIndex]) {
                 queryIndex++;
             }
         }
-        
+
         return queryIndex === query.length;
     }
 
     /**
      * 检查书签是否匹配搜索条件
-     * 
+     *
      * @param {Object} bookmark - 书签对象
      * @param {string} lowerQuery - 小写化的搜索关键词
      * @returns {boolean} - 是否匹配
@@ -336,6 +340,7 @@ class QuickOpenSite {
         this.searchInput.focus();
         if (this.searchTimeout) clearTimeout(this.searchTimeout);
         if (this.filterDebounceTimeout) clearTimeout(this.filterDebounceTimeout);
+        if (this.autoFocusTimeout) clearTimeout(this.autoFocusTimeout);
     }
 
     handleSearchAutoSelect(value) {
@@ -383,7 +388,7 @@ class QuickOpenSite {
     renderBookmarks() {
         // 隐藏 tooltip，避免在重新渲染时仍然显示
         this.hideTooltip();
-        
+
         this.bookmarksList.innerHTML = '';
         if (this.filteredBookmarks.length === 0) {
             this.searchInput.value ? this.showNoResults() : this.showEmptyState();
@@ -412,7 +417,7 @@ class QuickOpenSite {
     /**
      * 获取 favicon URL
      * 使用 Chrome 原生 _favicon API
-     * 
+     *
      * @param {string} pageUrl - 网页 URL
      * @returns {string} - favicon URL
      */
@@ -427,7 +432,7 @@ class QuickOpenSite {
      * 创建书签图标元素
      * 使用 Chrome 原生 _favicon API 获取网站图标
      * 优化：预先添加图片元素，使用 CSS 淡入减少闪动
-     * 
+     *
      * @param {Object} bookmark - 书签对象
      * @returns {HTMLElement} - 图标DOM元素
      */
@@ -437,7 +442,7 @@ class QuickOpenSite {
 
         // 生成首字母作为回退显示
         const fallbackText = bookmark.displayTitle.charAt(0).toUpperCase();
-        
+
         // 创建文字回退元素
         const textSpan = document.createElement('span');
         textSpan.className = 'icon-fallback';
@@ -453,7 +458,7 @@ class QuickOpenSite {
         img.style.position = 'absolute';
         img.style.top = '0';
         img.style.left = '0';
-        
+
         const faviconUrl = this.getFaviconUrl(bookmark.url);
 
         img.onload = () => {
@@ -477,19 +482,19 @@ class QuickOpenSite {
     createBookmarkInfo(bookmark) {
         const info = document.createElement('div');
         info.className = 'bookmark-info';
-        
+
         const title = document.createElement('div');
         title.className = 'bookmark-title';
         const titleText = bookmark.folder ? `${bookmark.folder} › ${bookmark.displayTitle}` : bookmark.displayTitle;
         title.textContent = titleText;
         this.setupTooltip(title, titleText);
-        
+
         const url = document.createElement('div');
         url.className = 'bookmark-url';
         const urlText = this.formatUrl(bookmark.url);
         url.textContent = urlText;
         this.setupTooltip(url, bookmark.url); // 显示完整 URL，而不是格式化后的
-        
+
         info.appendChild(title);
         info.appendChild(url);
         return info;
@@ -705,7 +710,7 @@ class QuickOpenSite {
     setupTooltip(element, fullText) {
         let showTimeout = null;
         let currentElement = null;
-        
+
         element.addEventListener('mouseenter', (e) => {
             currentElement = element;
             // 快速显示，延迟很短（50ms）
@@ -735,7 +740,7 @@ class QuickOpenSite {
         this.tooltip.textContent = text;
         this.tooltip.style.display = 'block';
         this.positionTooltip(element);
-        
+
         // 使用 requestAnimationFrame 确保 DOM 更新后再显示
         requestAnimationFrame(() => {
             this.tooltip.classList.add('show');
@@ -763,26 +768,26 @@ class QuickOpenSite {
         const tooltip = this.tooltip;
         const padding = 10;
         const arrowHeight = 12;
-        
+
         // 获取元素位置
         const rect = element.getBoundingClientRect();
         const tooltipWidth = tooltip.offsetWidth || 300;
         const tooltipHeight = tooltip.offsetHeight || 50;
-        
+
         // 默认显示在元素上方
         let left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
         let top = rect.top - tooltipHeight - padding - arrowHeight;
-        
+
         // 防止超出右边界
         if (left + tooltipWidth > window.innerWidth - padding) {
             left = window.innerWidth - tooltipWidth - padding;
         }
-        
+
         // 防止超出左边界
         if (left < padding) {
             left = padding;
         }
-        
+
         // 如果上方空间不足，显示在下方
         if (top < padding) {
             top = rect.bottom + padding + arrowHeight;
@@ -790,7 +795,7 @@ class QuickOpenSite {
         } else {
             tooltip.classList.remove('tooltip-below');
         }
-        
+
         tooltip.style.left = `${left}px`;
         tooltip.style.top = `${top}px`;
     }
@@ -819,6 +824,7 @@ class QuickOpenSite {
                     const bookmarks = this.keyMapping.get(e.key.toLowerCase());
                     if (bookmarks && bookmarks.length > 0) {
                         e.preventDefault();
+                        if (this.autoFocusTimeout) clearTimeout(this.autoFocusTimeout);
                         this.openBookmarks(bookmarks);
                     }
                 }
@@ -850,6 +856,7 @@ class QuickOpenSite {
 
     async openBookmark(bookmark, closeAfter = true) {
         try {
+            if (this.autoFocusTimeout) clearTimeout(this.autoFocusTimeout);
             if (this.settings.openInNewTab) {
                 await chrome.tabs.create({ url: bookmark.url });
             } else {
@@ -863,6 +870,7 @@ class QuickOpenSite {
     }
 
     openBookmarks(bookmarks) {
+        if (this.autoFocusTimeout) clearTimeout(this.autoFocusTimeout);
         bookmarks.forEach(bookmark => this.openBookmark(bookmark, false));
         window.close();
     }
@@ -877,10 +885,10 @@ class QuickOpenSite {
         try {
             const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (!activeTab || !activeTab.url || activeTab.url.startsWith('chrome://')) return;
-            
+
             const folderName = this.settings.bookmarkFolder;
             let targetFolderId;
-            
+
             if (folderName) {
                 // 配置了特定文件夹，添加到该文件夹
                 const targetFolder = this.findBookmarkFolder(await chrome.bookmarks.getTree(), folderName);
@@ -895,7 +903,7 @@ class QuickOpenSite {
                 const bookmarkTree = await chrome.bookmarks.getTree();
                 targetFolderId = bookmarkTree[0].children[0].id; // 通常是"书签栏"
             }
-            
+
             const title = `${activeTab.title} [${key}]`;
             await chrome.bookmarks.create({ parentId: targetFolderId, title: title, url: activeTab.url });
             this.addKeyInput.value = '';
