@@ -76,3 +76,5 @@ coverage/
 .sass-cache/
 *.css.map
 *.js.map
+
+.trae
