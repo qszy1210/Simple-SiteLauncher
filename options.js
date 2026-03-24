@@ -64,6 +64,19 @@ class OptionsManager {
                 this.resetSettings();
             }
         });
+
+        // Dashboard 入口
+        document.getElementById('openDashboardBtn').addEventListener('click', () => {
+            chrome.tabs.create({ url: chrome.runtime.getURL('dashboard.html') });
+        });
+
+        // 导出/导入按钮
+        document.getElementById('exportSettingsBtn').addEventListener('click', () => {
+            exportSettings();
+        });
+        document.getElementById('importSettingsBtn').addEventListener('click', () => {
+            importSettings();
+        });
     }
 
     async saveSetting(key, value) {
@@ -118,21 +131,28 @@ class OptionsManager {
     }
 }
 
-// 初始化
-document.addEventListener('DOMContentLoaded', () => {
-    const optionsManager = new OptionsManager();
+let optionsManager = null;
 
-    // 添加一些动画效果
+document.addEventListener('DOMContentLoaded', () => {
+    optionsManager = new OptionsManager();
     animateElements();
+
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            optionsManager.saveAllSettings();
+        }
+        if (e.key === 'Escape') {
+            window.close();
+        }
+    });
 });
 
 function animateElements() {
-    // 为选项组添加淡入动画
     const optionGroups = document.querySelectorAll('.option-group');
     optionGroups.forEach((group, index) => {
         group.style.opacity = '0';
         group.style.transform = 'translateY(20px)';
-
         setTimeout(() => {
             group.style.transition = 'all 0.5s ease';
             group.style.opacity = '1';
@@ -141,35 +161,6 @@ function animateElements() {
     });
 }
 
-// 快捷键处理
-document.addEventListener('keydown', (e) => {
-    // Ctrl/Cmd + S 保存设置
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        optionsManager.saveAllSettings();
-    }
-
-    // Esc 关闭页面
-    if (e.key === 'Escape') {
-        window.close();
-    }
-});
-
-// 主题切换 (未来功能预留)
-function toggleTheme() {
-    const body = document.body;
-    const isDark = body.classList.contains('dark-theme');
-
-    if (isDark) {
-        body.classList.remove('dark-theme');
-        localStorage.setItem('theme', 'light');
-    } else {
-        body.classList.add('dark-theme');
-        localStorage.setItem('theme', 'dark');
-    }
-}
-
-// 导出设置
 async function exportSettings() {
     try {
         const settings = await chrome.storage.sync.get();
@@ -183,14 +174,13 @@ async function exportSettings() {
         link.click();
 
         URL.revokeObjectURL(url);
-        optionsManager.showSaveStatus('✅ 设置已导出');
+        if (optionsManager) optionsManager.showSaveStatus('✅ 设置已导出');
     } catch (error) {
         console.error('导出设置失败:', error);
-        optionsManager.showSaveStatus('导出失败', false);
+        if (optionsManager) optionsManager.showSaveStatus('导出失败', false);
     }
 }
 
-// 导入设置
 function importSettings() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -199,18 +189,13 @@ function importSettings() {
     input.onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-
         try {
             const text = await file.text();
             const settings = JSON.parse(text);
-
             await chrome.storage.sync.set(settings);
-            // We need a way to call applySettings and showSaveStatus
-            // For now, reloading might be the simplest fix.
             location.reload();
         } catch (error) {
             console.error('导入设置失败:', error);
-            // And show a status message... this is getting complex.
             alert('导入设置失败，请检查文件格式。');
         }
     };

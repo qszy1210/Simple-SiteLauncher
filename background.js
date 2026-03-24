@@ -44,13 +44,16 @@ async function initializeDefaultSettings() {
 function createContextMenus() {
     chrome.contextMenus.removeAll(() => {
         chrome.contextMenus.create({ id: 'quick-open-site-main', title: 'Quick Open Site', contexts: ['action'] });
-        chrome.contextMenus.create({ id: 'open-options', parentId: 'quick-open-site-main', title: '⚙️ 打开设置', contexts: ['action'] });
-        chrome.contextMenus.create({ id: 'manage-bookmarks', parentId: 'quick-open-site-main', title: '📁 管理书签', contexts: ['action'] });
+        chrome.contextMenus.create({ id: 'open-dashboard', parentId: 'quick-open-site-main', title: '\u2328\uFE0F \u5FEB\u6377\u952E\u603B\u89C8', contexts: ['action'] });
+        chrome.contextMenus.create({ id: 'open-options', parentId: 'quick-open-site-main', title: '\u2699\uFE0F \u6253\u5F00\u8BBE\u7F6E', contexts: ['action'] });
+        chrome.contextMenus.create({ id: 'manage-bookmarks', parentId: 'quick-open-site-main', title: '\uD83D\uDCC1 \u7BA1\u7406\u4E66\u7B7E', contexts: ['action'] });
     });
 }
 
 chrome.contextMenus.onClicked.addListener((info) => {
-    if (info.menuItemId === 'open-options') {
+    if (info.menuItemId === 'open-dashboard') {
+        chrome.tabs.create({ url: chrome.runtime.getURL('dashboard.html') });
+    } else if (info.menuItemId === 'open-options') {
         chrome.runtime.openOptionsPage();
     } else if (info.menuItemId === 'manage-bookmarks') {
         chrome.tabs.create({ url: 'chrome://bookmarks/' });

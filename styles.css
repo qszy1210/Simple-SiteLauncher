@@ -7,7 +7,7 @@
 
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: linear-grad ient(135deg, #F8FAFC 0%, #E2E8F0 100%);
+    background: linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%);
     color: #1E293B;
     width: 420px;
     min-height: 580px;
@@ -48,11 +48,42 @@ body {
     pointer-events: none;
 }
 
+.header-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    position: relative;
+    z-index: 1;
+}
+
+.header-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.header-icon-btn {
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: white;
+    transition: all 0.2s ease;
+}
+
+.header-icon-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: scale(1.08);
+}
+
 .header h1 {
     font-size: 20px;
     font-weight: 700;
-    margin-bottom: 16px;
-    text-align: center;
     position: relative;
     z-index: 1;
     letter-spacing: -0.5px;
@@ -571,18 +602,7 @@ body {
     font-weight: 500;
 }
 
-.settings-tip {
-    font-style: italic;
-    opacity: 0.8;
-    transition: opacity 0.2s ease;
-}
-
-.settings-tip:hover {
-    opacity: 1;
-    color: #2563EB;
-}
-
-/* 新增：添加书签表单样式 */
+/* 添加书签表单样式 */
 .add-bookmark-form {
     margin-top: 16px;
     display: flex;

@@ -442,6 +442,23 @@
                 </ul>
             </div>
 
+            <!-- 快捷键管理入口 -->
+            <div class="section">
+                <div class="option-group" style="display: flex; align-items: center; justify-content: space-between;">
+                    <div class="option-info">
+                        <div class="option-title">快捷键总览</div>
+                        <div class="option-description">
+                            查看和管理所有已绑定的快捷键，支持修改、解绑和删除操作
+                        </div>
+                    </div>
+                    <div class="option-control">
+                        <button class="btn" id="openDashboardBtn">
+                            打开快捷键 Dashboard
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- 基本设置 -->
             <div class="section">
                 <h2 class="section-title">基本设置</h2>
@@ -527,6 +544,32 @@
                         <div class="option-control">
                             <button class="btn btn-secondary" id="resetSettingsBtn">
                                 重置设置
+                            </button>
+                        </div>
+                    </div>
+                    <div class="option-item">
+                        <div class="option-info">
+                            <div class="option-title">导出设置</div>
+                            <div class="option-description">
+                                将当前设置导出为 JSON 文件
+                            </div>
+                        </div>
+                        <div class="option-control">
+                            <button class="btn btn-secondary" id="exportSettingsBtn">
+                                导出
+                            </button>
+                        </div>
+                    </div>
+                    <div class="option-item">
+                        <div class="option-info">
+                            <div class="option-title">导入设置</div>
+                            <div class="option-description">
+                                从 JSON 文件导入设置（将覆盖当前设置）
+                            </div>
+                        </div>
+                        <div class="option-control">
+                            <button class="btn btn-secondary" id="importSettingsBtn">
+                                导入
                             </button>
                         </div>
                     </div>
