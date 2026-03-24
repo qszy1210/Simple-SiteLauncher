@@ -17,6 +17,22 @@ class DashboardManager {
         this.unboundList = document.getElementById('unboundList');
         this.toastEl = document.getElementById('toast');
         this.tooltipEl = document.getElementById('dashTooltip');
+        this.searchEl = document.getElementById('dashSearch');
+
+        this.popoverEl = document.getElementById('dashPopover');
+        this.popoverContentEl = document.getElementById('dashPopoverContent');
+        this.hidePopoverTimeout = null;
+        this.activePopoverInput = null;
+
+        this.batchMode = false;
+        this.selectedBookmarks = new Set();
+        this.batchBar = document.getElementById('batchBar');
+        this.batchCountEl = document.getElementById('batchCount');
+
+        this.recentSection = document.getElementById('recentSection');
+        this.recentList = document.getElementById('recentList');
+
+        this.dragData = null;
 
         this.init();
     }
@@ -26,7 +42,45 @@ class DashboardManager {
             chrome.runtime.openOptionsPage();
         });
 
-        this.dragData = null;
+        let searchDebounce = null;
+        this.searchEl.addEventListener('input', () => {
+            clearTimeout(searchDebounce);
+            searchDebounce = setTimeout(() => {
+                this.filterDashboard(this.searchEl.value.trim());
+            }, 250);
+        });
+
+        document.getElementById('batchModeBtn').addEventListener('click', () => {
+            this.toggleBatchMode();
+        });
+        document.getElementById('batchSelectAll').addEventListener('click', () => {
+            this.batchSelectAll();
+        });
+        document.getElementById('batchUnbind').addEventListener('click', () => {
+            this.batchUnbind();
+        });
+        document.getElementById('batchDelete').addEventListener('click', () => {
+            this.batchDelete();
+        });
+
+        document.getElementById('clearUsageBtn').addEventListener('click', async () => {
+            if (!confirm('确定要清除所有使用记录吗？')) return;
+            try {
+                await BookmarkService.clearUsageStats();
+                this.showToast('使用记录已清除', true);
+                await this.refresh();
+            } catch (err) {
+                this.showToast('清除失败', false);
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this.batchMode) {
+                this.toggleBatchMode();
+            }
+        });
+
+        this.popoverEl.addEventListener('mousedown', (e) => e.preventDefault());
 
         this.settings = await BookmarkService.loadSettings();
         await this.refresh();
@@ -52,9 +106,296 @@ class DashboardManager {
 
     render() {
         this.renderStats();
+        this.renderRecentBookmarks();
         this.renderGrid(this.letterGrid, this.letterKeys);
         this.renderGrid(this.numberGrid, this.numberKeys);
         this.renderUnboundBookmarks();
+        if (this.searchEl.value.trim()) {
+            this.filterDashboard(this.searchEl.value.trim());
+        }
+    }
+
+    // --- Search / filter ---
+    filterDashboard(query) {
+        const lowerQ = query.toLowerCase();
+
+        document.querySelectorAll('.key-card').forEach(card => {
+            if (!lowerQ) {
+                card.style.display = '';
+                card.querySelectorAll('.card-bookmark').forEach(r => r.style.display = '');
+                return;
+            }
+            const key = card.dataset.key;
+            const keyMatch = key === lowerQ;
+            const rows = card.querySelectorAll('.card-bookmark');
+            let anyRowMatch = false;
+
+            rows.forEach(row => {
+                const bm = row.__bookmarkData;
+                if (!bm) { row.style.display = ''; return; }
+                const rowMatch = bm.displayTitle.toLowerCase().includes(lowerQ) ||
+                    bm.url.toLowerCase().includes(lowerQ) ||
+                    (bm.folder && bm.folder.toLowerCase().includes(lowerQ));
+                row.style.display = (keyMatch || rowMatch) ? '' : 'none';
+                if (rowMatch) anyRowMatch = true;
+            });
+
+            card.style.display = (keyMatch || anyRowMatch) ? '' : 'none';
+        });
+
+        document.querySelectorAll('.unbound-item').forEach(item => {
+            if (!lowerQ) { item.style.display = ''; return; }
+            const bm = item.__bookmarkData;
+            if (!bm) { item.style.display = ''; return; }
+            const match = bm.displayTitle.toLowerCase().includes(lowerQ) ||
+                bm.url.toLowerCase().includes(lowerQ) ||
+                (bm.folder && bm.folder.toLowerCase().includes(lowerQ));
+            item.style.display = match ? '' : 'none';
+        });
+    }
+
+    // --- Recent usage ---
+    renderRecentBookmarks() {
+        this.recentList.textContent = '';
+        const recentItems = this.bookmarks
+            .filter(bm => bm.lastUsed > 0)
+            .sort((a, b) => b.lastUsed - a.lastUsed)
+            .slice(0, 8);
+
+        if (recentItems.length === 0) {
+            this.recentSection.style.display = 'none';
+            return;
+        }
+
+        this.recentSection.style.display = 'block';
+
+        recentItems.forEach(bookmark => {
+            const card = document.createElement('div');
+            card.className = 'recent-card';
+
+            const top = document.createElement('div');
+            top.className = 'recent-card-top';
+
+            const favicon = document.createElement('div');
+            favicon.className = 'card-favicon';
+            const fallback = document.createElement('span');
+            fallback.className = 'fav-fallback';
+            fallback.textContent = bookmark.displayTitle.charAt(0).toUpperCase();
+            favicon.appendChild(fallback);
+            const img = new Image();
+            img.className = 'fav-img';
+            img.onload = () => { favicon.classList.add('loaded'); };
+            img.onerror = () => { if (img.parentNode) img.remove(); };
+            img.src = BookmarkService.getFaviconUrl(bookmark.url);
+            favicon.appendChild(img);
+            top.appendChild(favicon);
+
+            if (bookmark.key) {
+                const badge = document.createElement('span');
+                badge.className = 'recent-key-badge';
+                badge.textContent = bookmark.key.toUpperCase();
+                top.appendChild(badge);
+            }
+
+            card.appendChild(top);
+
+            const title = document.createElement('div');
+            title.className = 'recent-card-title';
+            title.textContent = bookmark.displayTitle;
+            this.setupTooltip(title, bookmark.folder ? `${bookmark.folder} \u203A ${bookmark.displayTitle}` : bookmark.displayTitle);
+            card.appendChild(title);
+
+            const meta = document.createElement('div');
+            meta.className = 'recent-card-meta';
+            const time = document.createElement('span');
+            time.className = 'recent-time';
+            time.textContent = this.formatRelativeTime(bookmark.lastUsed);
+            const count = document.createElement('span');
+            count.className = 'recent-count';
+            count.textContent = `x${bookmark.usageCount}`;
+            meta.appendChild(time);
+            meta.appendChild(count);
+            card.appendChild(meta);
+
+            card.addEventListener('click', () => {
+                BookmarkService.recordUsage(bookmark.id);
+                chrome.tabs.create({ url: bookmark.url });
+            });
+
+            this.recentList.appendChild(card);
+        });
+    }
+
+    formatRelativeTime(timestamp) {
+        const now = Date.now();
+        const diff = now - timestamp;
+        const seconds = Math.floor(diff / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+        const weeks = Math.floor(days / 7);
+
+        if (seconds < 60) return '\u521A\u521A';
+        if (minutes < 60) return `${minutes}\u5206\u949F\u524D`;
+        if (hours < 24) return `${hours}\u5C0F\u65F6\u524D`;
+        if (days === 1) return '\u6628\u5929';
+        if (days < 7) return `${days}\u5929\u524D`;
+        if (weeks < 4) return `${weeks}\u5468\u524D`;
+        return `${Math.floor(days / 30)}\u6708\u524D`;
+    }
+
+    // --- Batch mode ---
+    toggleBatchMode() {
+        this.batchMode = !this.batchMode;
+        this.selectedBookmarks.clear();
+        this.updateBatchCount();
+
+        const container = document.querySelector('.container');
+        if (this.batchMode) {
+            container.classList.add('batch-mode');
+            this.batchBar.classList.add('show');
+        } else {
+            container.classList.remove('batch-mode');
+            this.batchBar.classList.remove('show');
+            document.querySelectorAll('.batch-selected').forEach(el => el.classList.remove('batch-selected'));
+        }
+    }
+
+    handleBatchClick(element, bookmark) {
+        if (!this.batchMode) return false;
+        const bmId = bookmark.id;
+        if (this.selectedBookmarks.has(bmId)) {
+            this.selectedBookmarks.delete(bmId);
+            element.classList.remove('batch-selected');
+        } else {
+            this.selectedBookmarks.add(bmId);
+            element.classList.add('batch-selected');
+        }
+        this.updateBatchCount();
+        return true;
+    }
+
+    updateBatchCount() {
+        this.batchCountEl.textContent = this.selectedBookmarks.size;
+    }
+
+    batchSelectAll() {
+        const visibleItems = [
+            ...document.querySelectorAll('.card-bookmark:not([style*="display: none"])'),
+            ...document.querySelectorAll('.unbound-item:not([style*="display: none"])')
+        ];
+        const allSelected = visibleItems.length > 0 && visibleItems.every(el => el.classList.contains('batch-selected'));
+
+        visibleItems.forEach(el => {
+            const bm = el.__bookmarkData;
+            if (!bm) return;
+            if (allSelected) {
+                this.selectedBookmarks.delete(bm.id);
+                el.classList.remove('batch-selected');
+            } else {
+                this.selectedBookmarks.add(bm.id);
+                el.classList.add('batch-selected');
+            }
+        });
+        this.updateBatchCount();
+    }
+
+    async batchUnbind() {
+        if (this.selectedBookmarks.size === 0) return;
+        const toUnbind = this.bookmarks.filter(bm => bm.key && this.selectedBookmarks.has(bm.id));
+        if (toUnbind.length === 0) {
+            this.showToast('选中书签均无快捷键', false);
+            return;
+        }
+        try {
+            for (const bm of toUnbind) {
+                await BookmarkService.deleteBookmarkKey(bm);
+            }
+            this.showToast(`已解绑 ${toUnbind.length} 个书签`, true);
+            this.toggleBatchMode();
+            await this.refresh();
+        } catch (err) {
+            this.showToast('批量解绑失败', false);
+        }
+    }
+
+    async batchDelete() {
+        if (this.selectedBookmarks.size === 0) return;
+        const count = this.selectedBookmarks.size;
+        if (!confirm(`确定要删除选中的 ${count} 个书签吗？此操作不可撤销。`)) return;
+        try {
+            for (const bmId of this.selectedBookmarks) {
+                await BookmarkService.deleteBookmark(bmId);
+            }
+            this.showToast(`已删除 ${count} 个书签`, true);
+            this.toggleBatchMode();
+            await this.refresh();
+        } catch (err) {
+            this.showToast('批量删除失败', false);
+        }
+    }
+
+    // --- Popover for available keys ---
+    updateDashPopover(excludeKey) {
+        const usedKeys = new Set(this.keyMapping.keys());
+        if (excludeKey) usedKeys.delete(excludeKey);
+        const availableKeys = this.allKeys.filter(k => !usedKeys.has(k));
+
+        this.popoverContentEl.textContent = '';
+        if (availableKeys.length === 0) {
+            this.popoverContentEl.textContent = '所有快捷键已被占用';
+            return;
+        }
+        availableKeys.forEach(key => {
+            const el = document.createElement('div');
+            el.className = 'available-key';
+            el.textContent = key;
+            el.addEventListener('click', () => {
+                if (this.activePopoverInput) {
+                    this.activePopoverInput.value = key;
+                    this.activePopoverInput.focus();
+                }
+            });
+            this.popoverContentEl.appendChild(el);
+        });
+    }
+
+    showDashPopover(inputEl, excludeKey) {
+        clearTimeout(this.hidePopoverTimeout);
+        this.activePopoverInput = inputEl;
+        this.updateDashPopover(excludeKey);
+
+        const rect = inputEl.getBoundingClientRect();
+        const popW = 280;
+        let left = rect.left + (rect.width / 2) - (popW / 2);
+        if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8;
+        if (left < 8) left = 8;
+
+        this.popoverEl.style.width = popW + 'px';
+        this.popoverEl.style.display = 'block';
+
+        const popH = this.popoverEl.offsetHeight;
+        let top = rect.top - popH - 8;
+        if (top < 8) top = rect.bottom + 8;
+
+        this.popoverEl.style.left = `${left}px`;
+        this.popoverEl.style.top = `${top}px`;
+    }
+
+    hideDashPopover() {
+        this.hidePopoverTimeout = setTimeout(() => {
+            this.popoverEl.style.display = 'none';
+            this.activePopoverInput = null;
+        }, 150);
+    }
+
+    setupPopoverForInput(inputEl, excludeKey) {
+        inputEl.addEventListener('focus', () => {
+            this.showDashPopover(inputEl, excludeKey);
+        });
+        inputEl.addEventListener('blur', () => {
+            this.hideDashPopover();
+        });
     }
 
     // --- Tooltip system (same fast approach as popup) ---
@@ -226,8 +567,10 @@ class DashboardManager {
         const row = document.createElement('div');
         row.className = 'card-bookmark';
         row.draggable = true;
+        row.__bookmarkData = bookmark;
 
         row.addEventListener('dragstart', (e) => {
+            if (this.batchMode) { e.preventDefault(); return; }
             this.dragData = { bookmark, sourceKey: bookmark.key };
             row.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
@@ -262,12 +605,23 @@ class DashboardManager {
         title.textContent = bookmark.displayTitle;
         const fullPath = bookmark.folder ? `${bookmark.folder} \u203A ${bookmark.displayTitle}` : bookmark.displayTitle;
         this.setupTooltip(title, fullPath);
-        const url = document.createElement('div');
-        url.className = 'card-url';
-        url.textContent = BookmarkService.formatUrl(bookmark.url);
-        this.setupTooltip(url, bookmark.url);
+        const urlRow = document.createElement('div');
+        urlRow.className = 'card-url';
+        urlRow.style.display = 'flex';
+        urlRow.style.alignItems = 'center';
+        const urlText = document.createElement('span');
+        urlText.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0';
+        urlText.textContent = BookmarkService.formatUrl(bookmark.url);
+        this.setupTooltip(urlText, bookmark.url);
+        urlRow.appendChild(urlText);
+        if (bookmark.usageCount > 0) {
+            const usageBadge = document.createElement('span');
+            usageBadge.className = 'usage-badge';
+            usageBadge.textContent = `${bookmark.usageCount}\u6B21`;
+            urlRow.appendChild(usageBadge);
+        }
         info.appendChild(title);
-        info.appendChild(url);
+        info.appendChild(urlRow);
         row.appendChild(info);
 
         const actions = document.createElement('div');
@@ -309,7 +663,9 @@ class DashboardManager {
         row.appendChild(actions);
 
         row.style.cursor = 'pointer';
-        row.addEventListener('click', () => {
+        row.addEventListener('click', (e) => {
+            if (this.handleBatchClick(row, bookmark)) return;
+            BookmarkService.recordUsage(bookmark.id);
             chrome.tabs.create({ url: bookmark.url });
         });
 
@@ -333,6 +689,8 @@ class DashboardManager {
         input.maxLength = 1;
         input.className = 'card-edit-input key-input';
         input.placeholder = key;
+
+        this.setupPopoverForInput(input, key);
 
         const saveBtn = document.createElement('button');
         saveBtn.className = 'card-edit-btn save';
@@ -554,8 +912,10 @@ class DashboardManager {
             const item = document.createElement('div');
             item.className = 'unbound-item';
             item.draggable = true;
+            item.__bookmarkData = bookmark;
 
             item.addEventListener('dragstart', (e) => {
+                if (this.batchMode) { e.preventDefault(); return; }
                 this.dragData = { bookmark, sourceKey: null };
                 item.classList.add('dragging');
                 e.dataTransfer.effectAllowed = 'move';
@@ -566,6 +926,12 @@ class DashboardManager {
                 item.classList.remove('dragging');
                 this.dragData = null;
                 document.querySelectorAll('.key-card.drag-over').forEach(c => c.classList.remove('drag-over'));
+            });
+
+            item.addEventListener('click', (e) => {
+                if (this.batchMode) {
+                    this.handleBatchClick(item, bookmark);
+                }
             });
 
             const favicon = document.createElement('div');
@@ -605,6 +971,8 @@ class DashboardManager {
             input.maxLength = 1;
             input.className = 'quick-bind-input';
             input.placeholder = 'key';
+
+            this.setupPopoverForInput(input, null);
 
             const bindBtn = document.createElement('button');
             bindBtn.className = 'quick-bind-btn';

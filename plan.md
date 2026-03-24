@@ -36,8 +36,11 @@ BookmarkService.loadBookmarks(settings)
         ├── parseKeyMappings()       // 正则 /\[([a-z0-9])\]/i 提取快捷键
         │       ├── bookmark.key          = 提取的字母/数字
         │       └── bookmark.displayTitle = 去除 [key] 后的标题
+        ├── getUsageStats()              // chrome.storage.local 读取使用统计
+        │       ├── bookmark.usageCount  = 使用次数
+        │       └── bookmark.lastUsed    = 最后使用时间戳
         └── sortBookmarksByPriority()
-                ├── pinned → keyboard(按key排序) → normal(按中文排序)
+                ├── pinned → keyboard(按key+usageCount排序) → normal(按usageCount+名称排序)
                 └── 返回 { bookmarks, keyMapping: Map<key, bookmark[]> }
 ```
 
@@ -158,6 +161,42 @@ dragend   → 清理所有拖拽状态
 - 跨 Grid 拖拽支持（字母区 → 数字区）
 - 未绑定区域的书签也可拖入卡片实现绑定
 
+### 7. Dashboard 全局搜索
+
+Header 区域半透明搜索框，250ms 防抖过滤。匹配逻辑：
+- key 字符精确匹配（如输入 `g` 直接匹配 G 卡片）
+- 书签 `displayTitle` / `url` / `folder` 的 `includes` 匹配
+- 卡片级显示/隐藏 + 卡片内行级显示/隐藏
+- 未绑定区域同步过滤
+
+### 8. 批量操作模式
+
+通过 header 按钮切换进入批量模式：
+- `.batch-mode` CSS 类在每个 `.card-bookmark` / `.unbound-item` 前插入 checkbox 伪元素
+- 选中项通过 `selectedBookmarks: Set<bookmarkId>` 管理
+- 底部固定操作栏（`#batchBar`）滑入，含全选/解绑选中/删除选中
+- Escape 键退出批量模式
+- 批量模式下禁用拖拽
+
+### 9. 使用频率追踪
+
+```
+openBookmark() / 卡片点击 → BookmarkService.recordUsage(bookmarkId)
+                              └── chrome.storage.local: usageStats
+                                    { bookmarkId: { count, lastUsed } }
+```
+
+- `loadBookmarks()` 自动挂载 `usageCount` / `lastUsed` 到每个 bookmark
+- `sortBookmarksByPriority()` 中作为二级排序权重（同 key 内按使用次数降序，无 key 的按使用次数优先再按名称）
+
+### 10. Dashboard 可用快捷键 Popover
+
+编辑键 / 快速绑定 input 聚焦时弹出可用键位网格（`#dashPopover`）：
+- `position: fixed` 跟随 input 定位（优先上方，空间不足翻转下方）
+- `mousedown → preventDefault()` 防止 blur 关闭
+- 150ms 延迟隐藏防止点击闪烁
+- 点击键位自动填入对应 input
+
 ---
 
 ## 已完成功能
@@ -215,20 +254,28 @@ dragend   → 清理所有拖拽状态
 
 - [x] Dashboard 书签拖拽换键（跨卡片拖拽重新分配快捷键）
 
+### Phase 8: Dashboard 功能增强 ✅
+
+- [x] 全局搜索框：header 搜索输入，250ms 防抖实时过滤卡片和书签
+- [x] 批量操作模式：多选 checkbox + 底部操作栏（全选/解绑/删除）
+- [x] 最近使用后端：recordUsage/getUsageStats (chrome.storage.local) + 排序权重集成
+- [x] 可用快捷键 Popover：编辑键/快速绑定 input 聚焦时弹出可用键位网格
+
 ---
 
 ## 后续功能规划
 
 ### 优先级 P0（近期）
 
-- [ ] **搜索功能增强**：Dashboard 增加全局搜索框，快速定位某个键位或书签
+- [x] **搜索功能增强**：Dashboard 增加全局搜索框，快速定位某个键位或书签
+- [x] **批量操作**：多选书签批量解绑/删除
+- [ ] **最近使用可视化**：Dashboard 增加最近使用区域展示，卡片内使用次数指示
 - [ ] **键盘导航**：Dashboard 支持方向键在卡片间导航
-- [ ] **批量操作**：多选书签批量解绑/删除
 
 ### 优先级 P1（中期）
 
 - [ ] **书签分组**：支持按文件夹/标签对书签进行分组展示
-- [ ] **最近使用**：记录书签打开频率，自动排序推荐
+- [x] **最近使用**：记录书签打开频率，自动排序推荐
 - [ ] **自定义主题**：支持暗色模式切换
 - [ ] **快捷键冲突检测**：同一 key 绑定多个书签时的可视化提示
 

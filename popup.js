@@ -617,6 +617,7 @@ class QuickOpenSite {
                 const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
                 await chrome.tabs.update(activeTab.id, { url: bookmark.url });
             }
+            BookmarkService.recordUsage(bookmark.id);
             if (closeAfter) window.close();
         } catch (error) {
             console.error('打开书签失败:', error);

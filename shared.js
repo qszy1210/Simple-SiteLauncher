@@ -34,6 +34,12 @@ const BookmarkService = {
         }
 
         const keyMapping = this.parseKeyMappings(bookmarks);
+        const usageStats = await this.getUsageStats();
+        bookmarks.forEach(bm => {
+            const stats = usageStats[bm.id];
+            bm.usageCount = stats ? stats.count : 0;
+            bm.lastUsed = stats ? stats.lastUsed : 0;
+        });
         bookmarks = this.sortBookmarksByPriority(bookmarks);
         return { bookmarks, keyMapping };
     },
@@ -114,8 +120,16 @@ const BookmarkService = {
             }
         });
 
-        keyboardBookmarks.sort((a, b) => a.key.toLowerCase().localeCompare(b.key.toLowerCase()));
-        normalBookmarks.sort((a, b) => a.displayTitle.localeCompare(b.displayTitle, 'zh-CN', { sensitivity: 'base' }));
+        keyboardBookmarks.sort((a, b) => {
+            const keyCmp = a.key.toLowerCase().localeCompare(b.key.toLowerCase());
+            if (keyCmp !== 0) return keyCmp;
+            return (b.usageCount || 0) - (a.usageCount || 0);
+        });
+        normalBookmarks.sort((a, b) => {
+            const usageDiff = (b.usageCount || 0) - (a.usageCount || 0);
+            if (usageDiff !== 0) return usageDiff;
+            return a.displayTitle.localeCompare(b.displayTitle, 'zh-CN', { sensitivity: 'base' });
+        });
 
         return [...pinnedBookmarks, ...keyboardBookmarks, ...normalBookmarks];
     },
@@ -150,6 +164,34 @@ const BookmarkService = {
 
         const bookmarkTitle = `${title} [${key}]`;
         await chrome.bookmarks.create({ parentId: targetFolderId, title: bookmarkTitle, url });
+    },
+
+    async recordUsage(bookmarkId) {
+        try {
+            const result = await chrome.storage.local.get('usageStats');
+            const stats = result.usageStats || {};
+            const entry = stats[bookmarkId] || { count: 0, lastUsed: 0 };
+            entry.count++;
+            entry.lastUsed = Date.now();
+            stats[bookmarkId] = entry;
+            await chrome.storage.local.set({ usageStats: stats });
+        } catch (error) {
+            console.error('记录使用统计失败:', error);
+        }
+    },
+
+    async getUsageStats() {
+        try {
+            const result = await chrome.storage.local.get('usageStats');
+            return result.usageStats || {};
+        } catch (error) {
+            console.error('获取使用统计失败:', error);
+            return {};
+        }
+    },
+
+    async clearUsageStats() {
+        await chrome.storage.local.remove('usageStats');
     },
 
     getFaviconUrl(pageUrl) {

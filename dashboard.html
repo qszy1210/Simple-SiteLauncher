@@ -665,6 +665,310 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        /* Recent usage section */
+        .recent-list {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 6px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(37, 99, 235, 0.25) transparent;
+        }
+
+        .recent-list::-webkit-scrollbar { height: 4px; }
+        .recent-list::-webkit-scrollbar-track { background: transparent; }
+        .recent-list::-webkit-scrollbar-thumb {
+            background: rgba(37, 99, 235, 0.25);
+            border-radius: 2px;
+        }
+
+        .recent-card {
+            flex-shrink: 0;
+            width: 140px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 10px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            animation: fadeInUp 0.2s ease-out;
+        }
+
+        .recent-card:hover {
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+            border-color: rgba(37, 99, 235, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .recent-card-top {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+
+        .recent-card-top .card-favicon {
+            width: 20px;
+            height: 20px;
+        }
+
+        .recent-key-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            font-family: 'Inter', monospace;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, #2563EB 0%, #3B82F6 100%);
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .recent-card-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #1E293B;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.3;
+            margin-bottom: 4px;
+        }
+
+        .recent-card-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 4px;
+        }
+
+        .recent-time {
+            font-size: 10px;
+            color: #94A3B8;
+            white-space: nowrap;
+        }
+
+        .recent-count {
+            font-size: 10px;
+            color: #2563EB;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        /* Usage count badge in card rows */
+        .usage-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0 4px;
+            height: 14px;
+            border-radius: 3px;
+            background: rgba(37, 99, 235, 0.08);
+            color: #2563EB;
+            font-size: 9px;
+            font-weight: 600;
+            flex-shrink: 0;
+            margin-left: 4px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .clear-usage-btn {
+            border: none;
+            background: transparent;
+            color: #94A3B8;
+            font-size: 11px;
+            cursor: pointer;
+            padding: 2px 8px;
+            border-radius: 4px;
+            transition: all 0.15s ease;
+        }
+
+        .clear-usage-btn:hover {
+            color: #DC2626;
+            background: rgba(220, 38, 38, 0.06);
+        }
+
+        /* Search box in header */
+        .header-search {
+            flex: 1;
+            max-width: 300px;
+            position: relative;
+            z-index: 1;
+            margin: 0 16px;
+        }
+
+        .header-search input {
+            width: 100%;
+            padding: 7px 12px 7px 32px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 13px;
+            outline: none;
+            transition: background 0.15s ease;
+        }
+
+        .header-search input::placeholder { color: rgba(255, 255, 255, 0.6); }
+        .header-search input:focus { background: rgba(255, 255, 255, 0.3); }
+
+        .header-search .search-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Batch mode styles */
+        .batch-mode .card-bookmark::before,
+        .batch-mode .unbound-item::before {
+            content: '';
+            display: inline-flex;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #CBD5E1;
+            border-radius: 4px;
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-sizing: border-box;
+        }
+
+        .batch-mode .card-bookmark.batch-selected::before,
+        .batch-mode .unbound-item.batch-selected::before {
+            background: #2563EB;
+            border-color: #2563EB;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 10px;
+        }
+
+        .batch-mode .card-actions { display: none !important; }
+
+        #batchBar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #2563EB 0%, #3B82F6 100%);
+            color: white;
+            padding: 10px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 100;
+            box-shadow: 0 -4px 16px rgba(37, 99, 235, 0.2);
+            transform: translateY(100%);
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #batchBar.show { transform: translateY(0); }
+
+        .batch-info {
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .batch-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .batch-btn {
+            border: none;
+            border-radius: 6px;
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .batch-btn-select-all {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .batch-btn-select-all:hover { background: rgba(255, 255, 255, 0.3); }
+
+        .batch-btn-unbind {
+            background: rgba(255, 255, 255, 0.9);
+            color: #2563EB;
+        }
+
+        .batch-btn-unbind:hover { background: white; }
+
+        .batch-btn-delete {
+            background: #DC2626;
+            color: white;
+        }
+
+        .batch-btn-delete:hover { background: #B91C1C; }
+
+        /* Popover for available keys */
+        .dash-popover {
+            position: fixed;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+            z-index: 200;
+            padding: 10px;
+            min-width: 200px;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+
+        .popover-header {
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748B;
+            padding: 0 2px 6px;
+            border-bottom: 1px solid #F1F5F9;
+            margin-bottom: 8px;
+        }
+
+        .popover-content {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            gap: 4px;
+        }
+
+        .available-key {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: 700;
+            font-family: 'Inter', monospace;
+            text-transform: uppercase;
+            cursor: pointer;
+            background: #F1F5F9;
+            color: #2563EB;
+            border: 1px solid #E2E8F0;
+            transition: all 0.12s ease;
+        }
+
+        .available-key:hover {
+            background: #2563EB;
+            color: white;
+            border-color: #2563EB;
+            transform: scale(1.08);
+        }
+
         .key-card { animation: fadeInUp 0.2s ease-out; }
 
         .key-card.drag-over {
@@ -691,9 +995,11 @@
         @media (max-width: 768px) {
             body { padding: 8px; }
             .header { padding: 14px 16px; flex-direction: column; gap: 8px; }
+            .header-search { max-width: 100%; margin: 0; }
             .content { padding: 12px; }
             .keys-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
             .stats-bar { flex-wrap: wrap; }
+            .popover-content { grid-template-columns: repeat(6, 1fr); }
         }
     </style>
 </head>
@@ -701,7 +1007,19 @@
     <div class="container">
         <div class="header">
             <h1>快捷键总览</h1>
+            <div class="header-search">
+                <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input id="dashSearch" type="text" placeholder="搜索键位或书签...">
+            </div>
             <div class="header-actions">
+                <button id="batchModeBtn" class="header-btn" title="批量操作">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                    </svg>
+                    批量
+                </button>
                 <button id="settingsBtn" class="header-btn" title="打开设置">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="3"/>
@@ -720,6 +1038,14 @@
 
             <div id="mainContent" style="display: none;">
                 <div id="statsBar" class="stats-bar"></div>
+
+                <div id="recentSection" class="section" style="display: none;">
+                    <div class="section-header">
+                        <h2 class="section-title">最近使用</h2>
+                        <button id="clearUsageBtn" class="clear-usage-btn" title="清除使用记录">清除记录</button>
+                    </div>
+                    <div id="recentList" class="recent-list"></div>
+                </div>
 
                 <div class="section">
                     <h2 class="section-title">字母快捷键 (A-Z)</h2>
@@ -741,6 +1067,20 @@
 
     <div id="toast" class="toast"></div>
     <div id="dashTooltip" class="dash-tooltip" style="display: none;"></div>
+
+    <div id="batchBar">
+        <div class="batch-info"><span id="batchCount">0</span> 项已选</div>
+        <div class="batch-actions">
+            <button id="batchSelectAll" class="batch-btn batch-btn-select-all">全选</button>
+            <button id="batchUnbind" class="batch-btn batch-btn-unbind">解绑选中</button>
+            <button id="batchDelete" class="batch-btn batch-btn-delete">删除选中</button>
+        </div>
+    </div>
+
+    <div id="dashPopover" class="dash-popover" style="display: none;">
+        <div class="popover-header">可用快捷键</div>
+        <div id="dashPopoverContent" class="popover-content"></div>
+    </div>
 
     <script src="shared.js"></script>
     <script src="dashboard.js"></script>
